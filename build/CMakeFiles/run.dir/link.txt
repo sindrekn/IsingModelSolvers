@@ -1,1 +1,0 @@
-/usr/bin/c++ -O3 -DNDEBUG CMakeFiles/run.dir/main.cpp.o -o run  librunner.a libcore.a libmetropolis.a libLuijtenBlote.a libcore.a 

@@ -1,2 +1,0 @@
-/usr/bin/ar qc libLuijtenBlote.a CMakeFiles/LuijtenBlote.dir/solvers/LuijtenBlote.cpp.o
-/usr/bin/ranlib libLuijtenBlote.a
