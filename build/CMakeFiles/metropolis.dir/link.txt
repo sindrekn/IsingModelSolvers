@@ -1,0 +1,2 @@
+/usr/bin/ar qc libmetropolis.a CMakeFiles/metropolis.dir/solvers/metropolis.cpp.o
+/usr/bin/ranlib libmetropolis.a

@@ -1,0 +1,2 @@
+/usr/bin/ar qc libcore.a CMakeFiles/core.dir/core/lattice/lattice.cpp.o CMakeFiles/core.dir/core/schedule/schedule.cpp.o CMakeFiles/core.dir/core/io/storage.cpp.o
+/usr/bin/ranlib libcore.a
