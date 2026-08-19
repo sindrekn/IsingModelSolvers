@@ -1,3 +1,5 @@
+To compile the LRIM simulation: 
+
 # First time only — create the build directory and configure
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 
@@ -5,9 +7,18 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
 
 # Run
-./build/run --solver metropolis --L 16 --sigma 1.5 --sigma_index 1
+./build/run --solver metropolis --L 16 --sigma 1.5 --sigma_index 0
 
 # Clean reconfigure after restructuring: 
 rm -rf build
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j$(nproc)
+
+
+For running analysis: 
+
+# Ensure you have python extansion pybind11 for c++ functions extansion
+# To compile the c++ functions for python: 
+g++ -O3 -shared -std=c++17 -fPIC $(python3 -m pybind11 --includes) file_reader.cpp -o file_reader$(python3-config --extension-suffix)
+
+# Then run the pyhton script as normal

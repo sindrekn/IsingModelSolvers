@@ -30,10 +30,10 @@ struct LRIM_2d_params {
             .t_min                  = 1.0,
             .t_max                  = 5.0,
             .sharpness              = 1.0,
-            .temp_updates           = 3,
+            .temp_updates           = 20,
             .num_runs               = 50,
-            .metro_sweeps_per_temp  = 20,
-            .store_step              = 5,
+            .metro_sweeps_per_temp  = L*L,
+            .store_step              = 20,
         };
     };
 };

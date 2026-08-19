@@ -67,7 +67,7 @@ void StateWriter::open_file() {
         throw std::runtime_error("StateWriter: failed to open file " + full_path);
     }
 }
- 
+
 void StateWriter::add_snapshot(std::vector<uint64_t> state) {
     if (closed_) {
         throw std::runtime_error("StateWriter: cannot add snapshot after close()");
@@ -79,7 +79,7 @@ void StateWriter::add_snapshot(std::vector<uint64_t> state) {
         flush();
     }
 }
- 
+
 void StateWriter::flush() {
     if (snapshots_.empty()) {
         return;
