@@ -14,23 +14,12 @@
 // between two sites.
 // ----------------------------------------------------------
 
-struct LongRange_DistanceResult {
-    std::vector<int> dx;
-    std::vector<int> dy;
-    std::vector<float> J_r;
-};
+std::vector<int> precompute_2d_nn(int L); 
 
-LongRange_DistanceResult LongRange_DistancePrecompute(int L, float sigma);
+std::vector<float> precompute_2d_nnn(int L);
 
-struct LB_ClusterPrecomputeResult {
-    std::vector<std::vector<float>> scale;
-    std::vector<std::vector<float>> cumulativeProb;
-};
+std::vector<int> precompute_honeycomb(int L); 
 
-LB_ClusterPrecomputeResult LB_ClusterPrecompute(
-    const LongRange_DistanceResult& distanceResult,
-    const std::vector<float> beta_schedule,
-    int L
-    );
+std::vector<int> precompute_3d_nn(int L);
 
 #endif // CORE_LATTICE_HPP
