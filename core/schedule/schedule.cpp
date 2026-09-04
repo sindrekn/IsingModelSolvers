@@ -24,4 +24,68 @@ std::vector<double> peak_temperature_schedule(
     std::sort(schedule.begin(), schedule.end(), std::greater<double>());
     return schedule;
 }
+ 
+// Precompute Metropolis acceptance probabilities.
+std::vector<double> precomputed_BetaJS_2d_nn(
+    const std::vector<double>& temp_schedule, double J)
+
+    /* 
+        Only 5 possible values of S = sum of (spin XOR neighbor):
+        S in {0,1,2,3,4} maps to energy differences {-4,-2,0,2,4}
+        Stored flat: BetaJS[temp * 5 + S] 
+    */
+
+{
+    constexpr int S_vals[] = {8, 4, 0, -4, -8};
+
+    int temp_updates = static_cast<int>(temp_schedule.size());
+    std::vector<double> BetaJS(temp_updates * 5, 0.0);
+
+    for (int i = 0; i < temp_updates; i++) {
+        double beta = 1.0 / temp_schedule[i];
+        for (int j = 0; j < 5; j++) {
+            BetaJS[i * 5 + j] = (J * S_vals[j] <= 0)
+                ? 1.0
+                : std::exp(-beta * J * S_vals[j]);
+        }
+    }
+    return BetaJS;
+}
+
+// Precompute Metropolis acceptance probabilities.
+std::vector<double> BetaJS_2d_nnn(const std::vector<double>& temp_schedule, double J);
+
+// Precompute Metropolis acceptance probabilities.
+std::vector<double> BetaJS_honeycomb(const std::vector<double>& temp_schedule, double J);
+
+// Precompute Metropolis acceptance probabilities.
+std::vector<double> BetaJS_3d_nn(const std::vector<double>& temp_schedule, double J)
+{
+    constexpr int S_vals[] = {12, 8, 4, 0, -4, -8, -12};
+
+    int temp_updates = static_cast<int>(temp_schedule.size());
+    std::vector<double> BetaJS(temp_updates * 7, 0.0);
+    for (int i = 0; i < temp_updates; i++) {
+        double beta = 1.0 / temp_schedule[i];
+        for (int j = 0; j < 7; j++) {
+            BetaJS[i * 7 + j] = (J * S_vals[j] <= 0)
+                ? 1.0
+                : std::exp(-beta * J * S_vals[j]);
+        }
+    }
+    return BetaJS;
+}
+
+std::vector<double> Padd_2d_nn(
+    const std::vector<double>& temp_schedule, double J)
+{
+    int temp_updates = static_cast<int>(temp_schedule.size());
+    std::vector<double> P_add(temp_updates);
+
+    for (int i = 0; i < temp_updates; i++) {
+        double beta = 1.0 / temp_schedule[i];
+        P_add[i] = 1.0 - std::exp(-2.0 * beta * J);
+    }
+    return P_add;
+}
 

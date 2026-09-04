@@ -14,4 +14,19 @@ std::vector<double> peak_temperature_schedule(
     double t_min, double t_max, double t_critical,
     int num_updates, double sharpness);
 
+// Precompute Metropolis acceptance probabilities.
+std::vector<double> BetaJS_2d_nn(const std::vector<double>& temp_schedule, double J);
+
+// Precompute Metropolis acceptance probabilities.
+std::vector<double> BetaJS_2d_nnn(const std::vector<double>& temp_schedule, double J);
+
+// Precompute Metropolis acceptance probabilities.
+std::vector<double> BetaJS_honeycomb(const std::vector<double>& temp_schedule, double J);
+
+// Precompute Metropolis acceptance probabilities.
+std::vector<double> BetaJS_3d_nn(const std::vector<double>& temp_schedule, double J);
+
+// Precompute Wolff's cluster addition probabilities.
+std::vector<double> Padd_2d_nn(const std::vector<double>& temp_schedule, double J);
+
 #endif // CORE_SCHEDULE_SCHEDULE_HPP

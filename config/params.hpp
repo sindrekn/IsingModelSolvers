@@ -3,7 +3,7 @@
 
 #include <cmath>
 
-struct LRIM_2d_params {
+struct params {
     // --- Lattice ---
     int    L;               // lattice side length (LxL spins)
     double J;        // coupling constant (positive for ferromagnetic)
@@ -22,8 +22,8 @@ struct LRIM_2d_params {
 
     // Default constructor reproduces the values from your original main().
     // Override individual fields after construction as needed.
-    static LRIM_2d_params defaults(int L) {
-        return LRIM_2d_params {
+    static params defaults(int L) {
+        return params {
             .L                      = L,
             .J                      = 1.0,
             .t_c                    = 3.0,

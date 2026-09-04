@@ -14,12 +14,14 @@
 // between two sites.
 // ----------------------------------------------------------
 
-std::vector<int> precompute_2d_nn(int L); 
+std::vector<int> neighbors_2d_nn(int L); 
 
-std::vector<float> precompute_2d_nnn(int L);
+std::vector<int> neighbors_2d_nnn(int L);
 
-std::vector<int> precompute_honeycomb(int L); 
+std::vector<int> neighbors_honeycomb(int L); 
 
-std::vector<int> precompute_3d_nn(int L);
+std::vector<int> neighbors_3d_nn(int L);
+
+std::vector<int> neighbors_3d_nnn(int L);
 
 #endif // CORE_LATTICE_HPP
