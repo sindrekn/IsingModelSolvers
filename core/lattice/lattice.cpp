@@ -32,9 +32,41 @@ std::vector<int> neighbors_2d_nnn(int L) {
     return neigh;
 }
 
-std::vector<int> neighbors_honeycomb(int L) {
-    int N = L * L;
-    std::vector<int> neigh(N * 3);
+std::vector<int> neighbors_triangular(int Lx, int Ly) {
+    int N = Lx * Ly;
+    std::vector<int> neigh(N * 6);
+
+    for (int i = 0; i < Ly; i++) {
+        for (int j = 0; j < Lx; j++) {
+
+            int id = i * Lx + j;
+
+            int im = (i - 1 + Ly) % Ly;
+            int ip = (i + 1) % Ly;
+            int jm = (j - 1 + Lx) % Lx;
+            int jp = (j + 1) % Lx;
+
+            if (i % 2 == 0) {
+
+                neigh[id * 6 + 0] = im * Lx + jm;
+                neigh[id * 6 + 1] = im * Lx + j;
+                neigh[id * 6 + 2] = i  * Lx + jm;
+                neigh[id * 6 + 3] = i  * Lx + jp;
+                neigh[id * 6 + 4] = ip * Lx + jm;
+                neigh[id * 6 + 5] = ip * Lx + j;
+
+            } else {
+
+                neigh[id * 6 + 0] = im * Lx + j;
+                neigh[id * 6 + 1] = im * Lx + jp;
+                neigh[id * 6 + 2] = i  * Lx + jm;
+                neigh[id * 6 + 3] = i  * Lx + jp;
+                neigh[id * 6 + 4] = ip * Lx + j;
+                neigh[id * 6 + 5] = ip * Lx + jp;
+            }
+        }
+    }
+
     return neigh;
 }
 

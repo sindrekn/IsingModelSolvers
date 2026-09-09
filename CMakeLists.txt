@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.20)
-project(LRIM CXX)
+project(IsingModelSolver CXX)
 
-set(CMAKE_INTERPROCEDURAL_LRIM TRUE)
+set(CMAKE_INTERPROCEDURAL_IsingModelSolver TRUE)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -27,20 +27,14 @@ add_library(core
 )
 target_include_directories(core PUBLIC ${CMAKE_SOURCE_DIR})
 
-# --- metropolis ---
-add_library(metropolis
-    solvers/metropolis.cpp
+# --- solvers ---
+add_library(solvers
+    solvers/solvers.cpp
 )
-target_link_libraries(metropolis PUBLIC core)
-
-# --- SA Upper Packed solver ---
-add_library(LuijtenBlote
-    solvers/LuijtenBlote.cpp
-)
-target_link_libraries(LuijtenBlote PUBLIC core)
+target_link_libraries(solvers PUBLIC core)
 
 add_library(runner backend/runner.cpp)
-target_link_libraries(runner PUBLIC metropolis LuijtenBlote)
+target_link_libraries(runner PUBLIC solvers)
 
 # --- Executable ---
 add_executable(run main.cpp)

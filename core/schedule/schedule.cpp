@@ -26,14 +26,8 @@ std::vector<double> peak_temperature_schedule(
 }
  
 // Precompute Metropolis acceptance probabilities.
-std::vector<double> precomputed_BetaJS_2d_nn(
+std::vector<double> BetaJS_2d_nn(
     const std::vector<double>& temp_schedule, double J)
-
-    /* 
-        Only 5 possible values of S = sum of (spin XOR neighbor):
-        S in {0,1,2,3,4} maps to energy differences {-4,-2,0,2,4}
-        Stored flat: BetaJS[temp * 5 + S] 
-    */
 
 {
     constexpr int S_vals[] = {8, 4, 0, -4, -8};
@@ -53,13 +47,15 @@ std::vector<double> precomputed_BetaJS_2d_nn(
 }
 
 // Precompute Metropolis acceptance probabilities.
-std::vector<double> BetaJS_2d_nnn(const std::vector<double>& temp_schedule, double J);
+std::vector<double> BetaJS_triangular(
+    const std::vector<double>& temp_schedule, double J)
+{
+    return BetaJS_3d_nn(temp_schedule, J);
+}
 
 // Precompute Metropolis acceptance probabilities.
-std::vector<double> BetaJS_honeycomb(const std::vector<double>& temp_schedule, double J);
-
-// Precompute Metropolis acceptance probabilities.
-std::vector<double> BetaJS_3d_nn(const std::vector<double>& temp_schedule, double J)
+std::vector<double> BetaJS_3d_nn(
+    const std::vector<double>& temp_schedule, double J)
 {
     constexpr int S_vals[] = {12, 8, 4, 0, -4, -8, -12};
 

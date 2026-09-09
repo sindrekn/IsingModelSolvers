@@ -8,6 +8,10 @@ struct params {
     int    L;               // lattice side length (LxL spins)
     double J;        // coupling constant (positive for ferromagnetic)
 
+    // --- Interactions ---
+    double J1;       // nearest-neighbor interaction strength
+    double J2;       // next-nearest-neighbor interaction strength
+
     // --- Temp Schedule ---
     double t_c;             // critical temperature for 2D Ising (for reference)
     double t_min;           // lowest temperature in schedule
@@ -18,6 +22,7 @@ struct params {
     int    temp_updates;    // number of temperature steps
     int    num_runs;              // independent parallel runs
     int    metro_sweeps_per_temp; // Metropolis sweeps per temperature step
+    int    wolff_sweeps_per_temp; // Wolff sweeps per temperature step
     int    store_step;          // store state every N sweeps/updates
 
     // Default constructor reproduces the values from your original main().
@@ -26,13 +31,16 @@ struct params {
         return params {
             .L                      = L,
             .J                      = 1.0,
+            .J1                     = 1.0,
+            .J2                     = 0.5,
             .t_c                    = 3.0,
             .t_min                  = 1.0,
             .t_max                  = 5.0,
             .sharpness              = 1.0,
-            .temp_updates           = 20,
+            .temp_updates           = 10,
             .num_runs               = 50,
-            .metro_sweeps_per_temp  = L*L,
+            .metro_sweeps_per_temp  = 10*L*L,
+            .wolff_sweeps_per_temp  = L*L,
             .store_step              = 20,
         };
     };

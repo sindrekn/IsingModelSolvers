@@ -46,8 +46,8 @@ def plot_avg_magnetization(L, num_temps, num_runs, base_dir):
 
 # Example usage
 if __name__ == "__main__":
-    base_dir = '/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/SimulatedAnnealing/2D_LRIM/metropolis/L16/sigma0'
+    base_dir = '/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/SimulatedAnnealing/2D_nn/ferromagnetic/metropolis/L16'
 
-    plot_avg_magnetization(L=16, num_temps=20, num_runs=50, base_dir=base_dir)
+    plot_avg_magnetization(L=16, num_temps=10, num_runs=50, base_dir=base_dir)
 
 

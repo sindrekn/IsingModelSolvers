@@ -31,6 +31,38 @@ void nn_2d(
     }
 }
 
+
+void wolff_cluster(
+    const int*      neighbors,
+    double          P_add,
+    uint64_t*       state,
+    std::vector<int>& stack,
+    std::uniform_real_distribution<double>& udist,
+    std::uniform_int_distribution<int>& site_dist,
+    std::mt19937&   rng)
+{
+    int seed      = site_dist(rng);
+    int seed_spin = get_bit(state, seed);
+
+    stack.clear();
+    stack.push_back(seed);
+    flip_bit(state, seed);
+
+    while (!stack.empty()) {
+        int cur = stack.back();
+        stack.pop_back();
+
+        for (int d = 0; d < 4; d++) {
+            int nb = neighbors[cur * 4 + d];
+            if (get_bit(state, nb) == seed_spin && udist(rng) < P_add) {
+                stack.push_back(nb);
+                flip_bit(state, nb);
+            }
+        }
+    }
+}
+
+
 void nnn_2d(
     int                     N,
     int                     J1, 
@@ -64,25 +96,35 @@ void nnn_2d(
     }
 }
 
-void honeycomb(
+void triangular(
+    int                     N,
     const int*              neighbors,
     const double*           BetaJS_row,
     uint64_t*               state,
     std::uniform_real_distribution<double>& udist,
     std::mt19937&           rng)
-    /*
-        One checkerboard half-sweep over sites of the given parity.
-        state is modified in-place — caller owns the buffer and handles
-        snapshotting into state_storage.
-    */
 
-{
+{   
+    for (int id = 0; id < N; id++) {
+
+        int c = get_bit(state, id);
+
+        int S = (c ^ get_bit(state, neighbors[id * 6 + 0]))
+                + (c ^ get_bit(state, neighbors[id * 6 + 1]))
+                + (c ^ get_bit(state, neighbors[id * 6 + 2]))
+                + (c ^ get_bit(state, neighbors[id * 6 + 3]))
+                + (c ^ get_bit(state, neighbors[id * 6 + 4]))
+                + (c ^ get_bit(state, neighbors[id * 6 + 5]));
+
+        double dE = BetaJS_row[S];
+        if (dE >= 1.0 || udist(rng) < dE)
+            flip_bit(state, id);
+    }
 }
 
 void nn_3d(
     const int*              neighbors,
     const double*           BetaJS_row,
-    double                  beta,
     const std::vector<int>& even_sites,
     const std::vector<int>& odd_sites,
     int                     parity,
@@ -144,35 +186,4 @@ void nnn_3d(
         }
     }
 }
-
-void wolff_cluster(
-    const int*      neighbors,
-    double          P_add,
-    uint64_t*       state,
-    std::vector<int>& stack,
-    std::uniform_real_distribution<double>& udist,
-    std::uniform_int_distribution<int>& site_dist,
-    std::mt19937&   rng)
-{
-    int seed      = site_dist(rng);
-    int seed_spin = get_bit(state, seed);
-
-    stack.clear();
-    stack.push_back(seed);
-    flip_bit(state, seed);
-
-    while (!stack.empty()) {
-        int cur = stack.back();
-        stack.pop_back();
-
-        for (int d = 0; d < 4; d++) {
-            int nb = neighbors[cur * 4 + d];
-            if (get_bit(state, nb) == seed_spin && udist(rng) < P_add) {
-                stack.push_back(nb);
-                flip_bit(state, nb);
-            }
-        }
-    }
-}
-
 
