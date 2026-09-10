@@ -33,6 +33,18 @@ std::vector<int> neighbors_2d_nnn(int L) {
 }
 
 std::vector<int> neighbors_triangular(int Lx, int Ly) {
+    if (Lx <= 0 || Ly <= 0) {
+        throw std::invalid_argument("Lattice dimensions must be positive.");
+    }
+
+    if (Lx % 2 != 0) {
+        throw std::invalid_argument("Lattice width (Lx) must be even for triangular lattice.");
+    }
+
+    if (Ly % 2 != 0) {
+        throw std::invalid_argument("Lattice height (Ly) must be even for triangular lattice.");
+    }
+
     int N = Lx * Ly;
     std::vector<int> neigh(N * 6);
 
@@ -63,6 +75,47 @@ std::vector<int> neighbors_triangular(int Lx, int Ly) {
                 neigh[id * 6 + 3] = i  * Lx + jp;
                 neigh[id * 6 + 4] = ip * Lx + j;
                 neigh[id * 6 + 5] = ip * Lx + jp;
+            }
+        }
+    }
+
+    return neigh;
+}
+
+std::vector<int> neighbors_honeycomb(int Lx, int Ly) {
+    if (Lx <= 0 || Ly <= 0) {
+        throw std::invalid_argument("Lattice dimensions must be positive.");
+    }
+
+    if (Lx % 2 != 0) {
+        throw std::invalid_argument("Lattice width (Lx) must be even for honeycomb lattice.");
+    }
+
+    if (Ly % 2 != 0) {
+        throw std::invalid_argument("Lattice height (Ly) must be even for honeycomb lattice.");
+    }
+
+    int N = Lx * Ly;
+    std::vector<int> neigh(N * 3);
+
+    for (int i = 0; i < Ly; i++) {
+        for (int j = 0; j < Lx; j++) {
+
+            int id = i * Lx + j;
+
+            int im = (i - 1 + Ly) % Ly;
+            int ip = (i + 1) % Ly;
+            int jm = (j - 1 + Lx) % Lx;
+            int jp = (j + 1) % Lx;
+
+            if ((i + j) % 2 == 0) {
+                neigh[id * 3 + 0] = im * Lx + j; // up
+                neigh[id * 3 + 1] = i * Lx + jp; // right
+                neigh[id * 3 + 2] = ip * Lx + j; // down
+            } else {
+                neigh[id * 3 + 0] = im * Lx + j; // up
+                neigh[id * 3 + 1] = i * Lx + jm; // left
+                neigh[id * 3 + 2] = ip * Lx + j; // down
             }
         }
     }

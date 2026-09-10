@@ -109,12 +109,35 @@ void triangular(
 
         int c = get_bit(state, id);
 
-        int S = (c ^ get_bit(state, neighbors[id * 6 + 0]))
-                + (c ^ get_bit(state, neighbors[id * 6 + 1]))
-                + (c ^ get_bit(state, neighbors[id * 6 + 2]))
-                + (c ^ get_bit(state, neighbors[id * 6 + 3]))
-                + (c ^ get_bit(state, neighbors[id * 6 + 4]))
-                + (c ^ get_bit(state, neighbors[id * 6 + 5]));
+        int S = (c ^ get_bit(state, neighbors[id * 7 + 0]))
+                + (c ^ get_bit(state, neighbors[id * 7 + 1]))
+                + (c ^ get_bit(state, neighbors[id * 7 + 2]))
+                + (c ^ get_bit(state, neighbors[id * 7 + 3]))
+                + (c ^ get_bit(state, neighbors[id * 7 + 4]))
+                + (c ^ get_bit(state, neighbors[id * 7 + 5]));
+
+        double dE = BetaJS_row[S];
+        if (dE >= 1.0 || udist(rng) < dE)
+            flip_bit(state, id);
+    }
+}
+
+void honeycomb(
+    int                     N,
+    const int*              neighbors,
+    const double*           BetaJS_row,
+    uint64_t*               state,
+    std::uniform_real_distribution<double>& udist,
+    std::mt19937&           rng)
+
+{   
+    for (int id = 0; id < N; id++) {
+
+        int c = get_bit(state, id);
+
+        int S = (c ^ get_bit(state, neighbors[id * 3 + 0]))
+                + (c ^ get_bit(state, neighbors[id * 3 + 1]))
+                + (c ^ get_bit(state, neighbors[id * 3 + 2]));
 
         double dE = BetaJS_row[S];
         if (dE >= 1.0 || udist(rng) < dE)

@@ -40,4 +40,7 @@ target_link_libraries(runner PUBLIC solvers)
 add_executable(run main.cpp)
 target_link_libraries(run PRIVATE runner core CLI11::CLI11)
 
+add_executable(lattice_viz LatticeViz.cpp)
+target_link_libraries(lattice_viz PRIVATE core)
+
 

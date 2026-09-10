@@ -44,6 +44,14 @@ void triangular(
     std::uniform_real_distribution<double>& udist,
     std::mt19937&           rng); 
 
+void honeycomb(
+    int                     N,
+    const int*              neighbors,
+    const double*           BetaJS_row,
+    uint64_t*               state,
+    std::uniform_real_distribution<double>& udist,
+    std::mt19937&           rng);
+
 void nn_3d(
     const int*              neighbors,
     const double*           BetaJS_row,

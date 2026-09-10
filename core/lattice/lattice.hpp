@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <stdexcept>
 #include <numeric>
+#include <iostream>
 
 // ----------------------------------------------------------
 // Precompute the distance and interaction strength for a 2D 
@@ -19,6 +20,8 @@ std::vector<int> neighbors_2d_nn(int L);
 std::vector<int> neighbors_2d_nnn(int L);
 
 std::vector<int> neighbors_triangular(int Lx, int Ly); 
+
+std::vector<int> neighbors_honeycomb(int Lx, int Ly); 
 
 std::vector<int> neighbors_3d_nn(int L);
 

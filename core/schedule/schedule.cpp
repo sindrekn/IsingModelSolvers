@@ -72,6 +72,25 @@ std::vector<double> BetaJS_3d_nn(
     return BetaJS;
 }
 
+std::vector<double> BetaJS_honeycomb(
+    const std::vector<double>& temp_schedule, double J)
+{
+    constexpr int S_vals[] = {6, 2, -2, -6};
+
+    int temp_updates = static_cast<int>(temp_schedule.size());
+    std::vector<double> BetaJS(temp_updates * 4, 0.0);
+
+    for (int i = 0; i < temp_updates; i++) {
+        double beta = 1.0 / temp_schedule[i];
+        for (int j = 0; j < 4; j++) {
+            BetaJS[i * 4 + j] = (J * S_vals[j] <= 0)
+                ? 1.0
+                : std::exp(-beta * J * S_vals[j]);
+        }
+    }
+    return BetaJS;
+}
+
 std::vector<double> Padd_2d_nn(
     const std::vector<double>& temp_schedule, double J)
 {

@@ -274,6 +274,64 @@ void run_ising_solver::triangular_solver(int Lx, int Ly) {
     return;
 }
 
+void run_ising_solver::honeycomb_solver(int Lx, int Ly) {
+    int N = Lx * Ly;
+    int W = num_words(N);
+    auto p = params::defaults(Lx);
+
+    std::vector<std::thread> threads;
+    threads.reserve(num_threads);
+
+    std::vector<int> neighbors = neighbors_honeycomb(Lx, Ly);
+    std::vector<double> BetaJS = BetaJS_honeycomb(temp_schedule, p.J);
+
+    std::cout << "Runs start on " << num_threads << " threads" << std::endl;
+
+    int start = run_start;
+    for (int t = 0; t < num_threads; t++) {
+        int end = start + runs_per_thread + (t < extra ? 1 : 0);
+
+        threads.emplace_back([&, start, end]() {
+            std::uniform_real_distribution <double> udist(0.0, 1.0);
+
+            for (int run = start; run < end; run++) {
+                std::mt19937 rng(std::random_device{}() + run);
+
+                // Working state for this run — lives on the thread's stack
+                std::vector<uint64_t> state(W);
+                random_binary_state(state.data(), N, rng);
+
+                for (int temp_index = 0; temp_index < p.temp_updates; temp_index++) {
+                    const double* BetaJS_row = &BetaJS[temp_index * 4];
+                    StateWriter writer(temp_dirs[temp_index], run);
+                    
+                    for (int sweep = 0; sweep < p.metro_sweeps_per_temp; sweep++) {
+                        honeycomb(
+                            N, 
+                            neighbors.data(),
+                            BetaJS_row,
+                            state.data(),
+                            udist,
+                            rng);
+
+                        if (sweep % p.store_step == 0) {
+                            writer.add_snapshot(state);
+                        }
+                    }
+                    // Always store the final state of each temperature step
+                    writer.add_snapshot(state);
+                    writer.close();
+                }
+            }
+        });
+        start = end;
+    }
+    for (auto& t : threads)
+        t.join();
+
+    return;
+}
+
 void run_ising_solver::nn_3d_solver() {
     int N = L * L * L;
     int W = num_words(N);

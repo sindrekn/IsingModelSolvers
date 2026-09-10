@@ -24,6 +24,7 @@ public:
     void wolff_solver();
     void nnn_2d_solver();
     void triangular_solver(int Lx, int Ly);
+    void honeycomb_solver(int Lx, int Ly);
     void nn_3d_solver();
     void nnn_3d_solver();
 
