@@ -3,7 +3,7 @@
 #include "core/bit_ops.hpp"
 
 
-void nn_2d(
+void quadratic(
     const int*              neighbors,
     const double*           BetaJS_row,
     const std::vector<int>& even_sites,
@@ -63,7 +63,7 @@ void wolff_cluster(
 }
 
 
-void nnn_2d(
+void quadratic_nnn(
     int                     N,
     int                     J1, 
     int                     J2,
@@ -109,12 +109,12 @@ void triangular(
 
         int c = get_bit(state, id);
 
-        int S = (c ^ get_bit(state, neighbors[id * 7 + 0]))
-                + (c ^ get_bit(state, neighbors[id * 7 + 1]))
-                + (c ^ get_bit(state, neighbors[id * 7 + 2]))
-                + (c ^ get_bit(state, neighbors[id * 7 + 3]))
-                + (c ^ get_bit(state, neighbors[id * 7 + 4]))
-                + (c ^ get_bit(state, neighbors[id * 7 + 5]));
+        int S = (c ^ get_bit(state, neighbors[id * 6 + 0]))
+                + (c ^ get_bit(state, neighbors[id * 6 + 1]))
+                + (c ^ get_bit(state, neighbors[id * 6 + 2]))
+                + (c ^ get_bit(state, neighbors[id * 6 + 3]))
+                + (c ^ get_bit(state, neighbors[id * 6 + 4]))
+                + (c ^ get_bit(state, neighbors[id * 6 + 5]));
 
         double dE = BetaJS_row[S];
         if (dE >= 1.0 || udist(rng) < dE)
@@ -145,7 +145,7 @@ void honeycomb(
     }
 }
 
-void nn_3d(
+void cubic(
     const int*              neighbors,
     const double*           BetaJS_row,
     const std::vector<int>& even_sites,
@@ -175,7 +175,7 @@ void nn_3d(
     }
 }
 
-void nnn_3d(
+void cubic_nnn(
     int                     N,
     int                     J1, 
     int                     J2,

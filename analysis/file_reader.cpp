@@ -8,13 +8,12 @@
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h> 
 
-void print_lattice_snapshots(const std::string& filepath, int lattice_dim) {
+void print_lattice_snapshots(const std::string& filepath, int num_spins) {
     std::ifstream file(filepath, std::ios::binary);
     if (!file.is_open()) {
         throw std::runtime_error("Failed to open file: " + filepath);
     }
 
-    const int num_spins = lattice_dim * lattice_dim;
     const uint64_t expected_words = (num_spins + 63) / 64; // ceil division, bit-packed
 
     int snapshot_index = 0;

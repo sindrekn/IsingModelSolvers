@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <cstring>
 
-void nn_2d(
+void quadratic(
     const int*              neighbors,
     const double*           BetaJS_row,
     const std::vector<int>& even_sites,
@@ -25,7 +25,7 @@ void wolff_cluster(
     std::uniform_int_distribution<int>& site_dist,
     std::mt19937&           rng); 
 
-void nnn_2d(
+void quadratic_nnn(
     int                     N,
     int                     J1, 
     int                     J2,
@@ -52,7 +52,7 @@ void honeycomb(
     std::uniform_real_distribution<double>& udist,
     std::mt19937&           rng);
 
-void nn_3d(
+void cubic(
     const int*              neighbors,
     const double*           BetaJS_row,
     const std::vector<int>& even_sites,
@@ -62,7 +62,7 @@ void nn_3d(
     std::uniform_real_distribution<double>& udist,
     std::mt19937&           rng); 
 
-void nnn_3d(
+void cubic_nnn(
     int                     N,
     int                     J1, 
     int                     J2,

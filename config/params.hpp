@@ -13,16 +13,12 @@ struct params {
     double J2;       // next-nearest-neighbor interaction strength
 
     // --- Temp Schedule ---
-    double t_c;             // critical temperature for 2D Ising (for reference)
-    double t_min;           // lowest temperature in schedule
-    double t_max;           // highest temperature in schedule
     double sharpness;       // power-law warp around T_c (higher = more points near T_c)
 
     // --- Run control ---
     int    temp_updates;    // number of temperature steps
-    int    num_runs;              // independent parallel runs
-    int    metro_sweeps_per_temp; // Metropolis sweeps per temperature step
-    int    wolff_sweeps_per_temp; // Wolff sweeps per temperature step
+    int    sweeps_per_temp; // Sweeps per temperature step for 2D lattices
+    int    sweeps_per_temp_3d; // Sweeps per temperature step for 3D lattices
     int    store_step;          // store state every N sweeps/updates
 
     // Default constructor reproduces the values from your original main().
@@ -32,16 +28,12 @@ struct params {
             .L                      = L,
             .J                      = 1.0,
             .J1                     = 1.0,
-            .J2                     = 0.5,
-            .t_c                    = 3.0,
-            .t_min                  = 1.0,
-            .t_max                  = 5.0,
-            .sharpness              = 1.0,
-            .temp_updates           = 10,
-            .num_runs               = 50,
-            .metro_sweeps_per_temp  = 10*L*L,
-            .wolff_sweeps_per_temp  = L*L,
-            .store_step              = 20,
+            .J2                     = 1.0,
+            .sharpness              = 1.6,
+            .temp_updates           = 50,
+            .sweeps_per_temp        = L*L,
+            .sweeps_per_temp_3d     = L*L*L,
+            .store_step              = 500,
         };
     };
 };

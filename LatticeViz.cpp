@@ -171,11 +171,11 @@ int main() {
 
     std::filesystem::create_directories("temp/LatticeViz");
 
-    auto nn = neighbors_2d_nn(L);
+    auto nn = neighbors_quadratic(L);
     visualize_lattice_svg("temp/LatticeViz/nn_L8.svg", L, L, nn, 4, "square",
                            "2D nearest-neighbor lattice (L=8)");
 
-    auto nnn = neighbors_2d_nnn(L);
+    auto nnn = neighbors_quadratic_nnn(L);
     visualize_lattice_svg("temp/LatticeViz/nnn_L8.svg", L, L, nnn, 4, "square",
                            "2D next-nearest-neighbor (diagonal) lattice (L=8)");
 

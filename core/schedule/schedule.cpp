@@ -26,7 +26,7 @@ std::vector<double> peak_temperature_schedule(
 }
  
 // Precompute Metropolis acceptance probabilities.
-std::vector<double> BetaJS_2d_nn(
+std::vector<double> BetaJS_quadratic(
     const std::vector<double>& temp_schedule, double J)
 
 {
@@ -50,11 +50,11 @@ std::vector<double> BetaJS_2d_nn(
 std::vector<double> BetaJS_triangular(
     const std::vector<double>& temp_schedule, double J)
 {
-    return BetaJS_3d_nn(temp_schedule, J);
+    return BetaJS_cubic(temp_schedule, J);
 }
 
 // Precompute Metropolis acceptance probabilities.
-std::vector<double> BetaJS_3d_nn(
+std::vector<double> BetaJS_cubic(
     const std::vector<double>& temp_schedule, double J)
 {
     constexpr int S_vals[] = {12, 8, 4, 0, -4, -8, -12};
@@ -91,7 +91,7 @@ std::vector<double> BetaJS_honeycomb(
     return BetaJS;
 }
 
-std::vector<double> Padd_2d_nn(
+std::vector<double> Padd_quadratic(
     const std::vector<double>& temp_schedule, double J)
 {
     int temp_updates = static_cast<int>(temp_schedule.size());

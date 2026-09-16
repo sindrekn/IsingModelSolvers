@@ -25,7 +25,7 @@ run_ising_solver::run_ising_solver(
     }
 }
 
-void run_ising_solver::nn_2d_solver() {
+void run_ising_solver::quadratic_solver() {
     int N = L * L;
     int W = num_words(N);
     auto p = params::defaults(L);
@@ -33,8 +33,8 @@ void run_ising_solver::nn_2d_solver() {
     std::vector<std::thread> threads;
     threads.reserve(num_threads);
 
-    std::vector<int> neighbors = neighbors_2d_nn(L);
-    std::vector<double> BetaJS = BetaJS_2d_nn(temp_schedule, p.J);
+    std::vector<int> neighbors = neighbors_quadratic(L);
+    std::vector<double> BetaJS = BetaJS_quadratic(temp_schedule, p.J);
 
     std::vector<int> even_sites, odd_sites;
     even_sites.reserve(N / 2);
@@ -44,7 +44,8 @@ void run_ising_solver::nn_2d_solver() {
         else odd_sites.push_back(id);
     }
 
-    std::cout << "Runs start on " << num_threads << " threads" << std::endl;
+    std::cout << "2D Ising solver with nearest-neighbor interactions on a quadratic lattice of size " << L << "x" << L << std::endl;
+    std::cout << "Runs number " << run_start << " to " << run_end << " on " << num_threads << " threads" << std::endl;
 
     int start = run_start;
     for (int t = 0; t < num_threads; t++) {
@@ -64,9 +65,9 @@ void run_ising_solver::nn_2d_solver() {
                     const double* BetaJS_row = &BetaJS[temp_index * 5];
                     StateWriter writer(temp_dirs[temp_index], run);
                     
-                    for (int sweep = 0; sweep < p.metro_sweeps_per_temp; sweep++) {
+                    for (int sweep = 0; sweep < p.sweeps_per_temp; sweep++) {
                         for (int parity = 0; parity < 2; parity++) {
-                            nn_2d(
+                            quadratic(
                                 neighbors.data(),
                                 BetaJS_row,
                                 even_sites,
@@ -103,10 +104,11 @@ void run_ising_solver::wolff_solver() {
     std::vector<std::thread> threads;
     threads.reserve(num_threads);
 
-    std::vector<int> neighbors = neighbors_2d_nn(L);
-    std::vector<double> Padd = Padd_2d_nn(temp_schedule, p.J);
+    std::vector<int> neighbors = neighbors_quadratic(L);
+    std::vector<double> Padd = Padd_quadratic(temp_schedule, p.J);
 
-    std::cout << "Runs start on " << num_threads << " threads" << std::endl;
+    std::cout << "2D Ising solver with nearest-neighbor interactions on a quadratic lattice of size " << L << "x" << L << " with wolff algorithm" << std::endl;
+    std::cout << "Runs number " << run_start << " to " << run_end << " on " << num_threads << " threads" << std::endl;
 
     int start = run_start;
     for (int t = 0; t < num_threads; t++) {
@@ -128,7 +130,7 @@ void run_ising_solver::wolff_solver() {
                 for (int temp_index = 0; temp_index < p.temp_updates; temp_index++) {
                     StateWriter writer(temp_dirs[temp_index], run);
                     
-                    for (int sweep = 0; sweep < p.wolff_sweeps_per_temp; sweep++) {
+                    for (int sweep = 0; sweep < p.sweeps_per_temp; sweep++) {
                         wolff_cluster(
                             neighbors.data(),
                             Padd[temp_index],
@@ -156,7 +158,7 @@ void run_ising_solver::wolff_solver() {
     return;
 }
 
-void run_ising_solver::nnn_2d_solver() {
+void run_ising_solver::quadratic_nnn_solver() {
     int N = L * L;
     int W = num_words(N);
     auto p = params::defaults(L);
@@ -164,10 +166,11 @@ void run_ising_solver::nnn_2d_solver() {
     std::vector<std::thread> threads;
     threads.reserve(num_threads);
 
-    std::vector<int> nn_neighbors = neighbors_2d_nn(L);
-    std::vector<int> nnn_neighbors = neighbors_2d_nnn(L);
+    std::vector<int> nn_neighbors = neighbors_quadratic(L);
+    std::vector<int> nnn_neighbors = neighbors_quadratic_nnn(L);
     
-    std::cout << "Runs start on " << num_threads << " threads" << std::endl;
+    std::cout << "2D Ising solver with next-nearest-neighbor interactions on a quadratic lattice of size " << L << "x" << L << std::endl;
+    std::cout << "Runs number " << run_start << " to " << run_end << " on " << num_threads << " threads" << std::endl;
 
     int start = run_start;
     for (int t = 0; t < num_threads; t++) {
@@ -186,8 +189,8 @@ void run_ising_solver::nnn_2d_solver() {
                 for (int temp_index = 0; temp_index < p.temp_updates; temp_index++) {
                     StateWriter writer(temp_dirs[temp_index], run);
                     
-                    for (int sweep = 0; sweep < p.metro_sweeps_per_temp; sweep++) {
-                        nnn_2d(
+                    for (int sweep = 0; sweep < p.sweeps_per_temp; sweep++) {
+                        quadratic_nnn(
                             N,
                             p.J1,
                             p.J2,
@@ -227,7 +230,9 @@ void run_ising_solver::triangular_solver(int Lx, int Ly) {
     std::vector<int> neighbors = neighbors_triangular(Lx, Ly);
     std::vector<double> BetaJS = BetaJS_triangular(temp_schedule, p.J);
 
-    std::cout << "Runs start on " << num_threads << " threads" << std::endl;
+
+    std::cout << "2D Ising solver with nearest-neighbor interactions on a triangular lattice of size " << Lx << "x" << Ly << std::endl;
+    std::cout << "Runs number " << run_start << " to " << run_end << " on " << num_threads << " threads" << std::endl;
 
     int start = run_start;
     for (int t = 0; t < num_threads; t++) {
@@ -247,7 +252,7 @@ void run_ising_solver::triangular_solver(int Lx, int Ly) {
                     const double* BetaJS_row = &BetaJS[temp_index * 7];
                     StateWriter writer(temp_dirs[temp_index], run);
                     
-                    for (int sweep = 0; sweep < p.metro_sweeps_per_temp; sweep++) {
+                    for (int sweep = 0; sweep < p.sweeps_per_temp; sweep++) {
                         triangular(
                             N, 
                             neighbors.data(),
@@ -285,7 +290,8 @@ void run_ising_solver::honeycomb_solver(int Lx, int Ly) {
     std::vector<int> neighbors = neighbors_honeycomb(Lx, Ly);
     std::vector<double> BetaJS = BetaJS_honeycomb(temp_schedule, p.J);
 
-    std::cout << "Runs start on " << num_threads << " threads" << std::endl;
+    std::cout << "2D Ising solver with nearest-neighbor interactions on a honeycomb lattice of size " << Lx << "x" << Ly << std::endl;
+    std::cout << "Runs number " << run_start << " to " << run_end << " on " << num_threads << " threads" << std::endl;
 
     int start = run_start;
     for (int t = 0; t < num_threads; t++) {
@@ -305,7 +311,7 @@ void run_ising_solver::honeycomb_solver(int Lx, int Ly) {
                     const double* BetaJS_row = &BetaJS[temp_index * 4];
                     StateWriter writer(temp_dirs[temp_index], run);
                     
-                    for (int sweep = 0; sweep < p.metro_sweeps_per_temp; sweep++) {
+                    for (int sweep = 0; sweep < p.sweeps_per_temp; sweep++) {
                         honeycomb(
                             N, 
                             neighbors.data(),
@@ -332,7 +338,7 @@ void run_ising_solver::honeycomb_solver(int Lx, int Ly) {
     return;
 }
 
-void run_ising_solver::nn_3d_solver() {
+void run_ising_solver::cubic_solver() {
     int N = L * L * L;
     int W = num_words(N);
     auto p = params::defaults(L);
@@ -340,8 +346,8 @@ void run_ising_solver::nn_3d_solver() {
     std::vector<std::thread> threads;
     threads.reserve(num_threads);
 
-    std::vector<int> neighbors = neighbors_3d_nn(L);
-    std::vector<double> BetaJS = BetaJS_3d_nn(temp_schedule, params::defaults(L).J);
+    std::vector<int> neighbors = neighbors_cubic(L);
+    std::vector<double> BetaJS = BetaJS_cubic(temp_schedule, p.J);
 
     std::vector<int> even_sites, odd_sites;
     even_sites.reserve(N / 2);
@@ -357,7 +363,9 @@ void run_ising_solver::nn_3d_solver() {
             odd_sites.push_back(id);
     }
 
-    std::cout << "Runs start on " << num_threads << " threads" << std::endl;
+
+    std::cout << "3D Ising solver with nearest-neighbor interactions on a cubic lattice of size " << L << "x" << L << "x" << L << std::endl;
+    std::cout << "Runs number " << run_start << " to " << run_end << " on " << num_threads << " threads" << std::endl;
 
     int start = run_start;
     for (int t = 0; t < num_threads; t++) {
@@ -377,9 +385,9 @@ void run_ising_solver::nn_3d_solver() {
                     const double* BetaJS_row = &BetaJS[temp_index * 7];
                     StateWriter writer(temp_dirs[temp_index], run);
                     
-                    for (int sweep = 0; sweep < p.metro_sweeps_per_temp; sweep++) {
+                    for (int sweep = 0; sweep < p.sweeps_per_temp_3d; sweep++) {
                         for (int parity = 0; parity < 2; parity++) {
-                            nn_3d(
+                            cubic(
                                 neighbors.data(),
                                 BetaJS_row,
                                 even_sites,
@@ -408,7 +416,7 @@ void run_ising_solver::nn_3d_solver() {
     return;
 }
 
-void run_ising_solver::nnn_3d_solver() {
+void run_ising_solver::cubic_nnn_solver() {
     int N = L * L;
     int W = num_words(N);
     auto p = params::defaults(L);
@@ -416,10 +424,11 @@ void run_ising_solver::nnn_3d_solver() {
     std::vector<std::thread> threads;
     threads.reserve(num_threads);
 
-    std::vector<int> nn_neighbors = neighbors_3d_nn(L);
-    std::vector<int> nnn_neighbors = neighbors_3d_nnn(L);
+    std::vector<int> nn_neighbors = neighbors_cubic(L);
+    std::vector<int> nnn_neighbors = neighbors_cubic_nnn(L);
     
-    std::cout << "Runs start on " << num_threads << " threads" << std::endl;
+    std::cout << "3D Ising solver with next-nearest-neighbor interactions on a cubic lattice of size " << L << "x" << L << "x" << L << std::endl;
+    std::cout << "Runs number " << run_start << " to " << run_end << " on " << num_threads << " threads" << std::endl;
 
     int start = run_start;
     for (int t = 0; t < num_threads; t++) {
@@ -438,8 +447,8 @@ void run_ising_solver::nnn_3d_solver() {
                 for (int temp_index = 0; temp_index < p.temp_updates; temp_index++) {
                     StateWriter writer(temp_dirs[temp_index], run);
                     
-                    for (int sweep = 0; sweep < p.metro_sweeps_per_temp; sweep++) {
-                        nnn_3d(
+                    for (int sweep = 0; sweep < p.sweeps_per_temp_3d; sweep++) {
+                        cubic_nnn(
                             N,
                             p.J1,
                             p.J2,

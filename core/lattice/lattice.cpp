@@ -1,6 +1,6 @@
 #include "lattice.hpp"
 
-std::vector<int> neighbors_2d_nn(int L) {
+std::vector<int> neighbors_quadratic(int L) {
     int N = L * L;
     std::vector<int> neigh(N * 4);
 
@@ -16,7 +16,7 @@ std::vector<int> neighbors_2d_nn(int L) {
     return neigh;
 }
 
-std::vector<int> neighbors_2d_nnn(int L) {
+std::vector<int> neighbors_quadratic_nnn(int L) {
     int N = L * L;
     std::vector<int> neigh(N * 4);
 
@@ -123,7 +123,7 @@ std::vector<int> neighbors_honeycomb(int Lx, int Ly) {
     return neigh;
 }
 
-std::vector<int> neighbors_3d_nn(int L) {
+std::vector<int> neighbors_cubic(int L) {
     int N = L * L * L;
     std::vector<int> neigh(N * 6);
 
@@ -143,7 +143,7 @@ std::vector<int> neighbors_3d_nn(int L) {
     return neigh;
 }
 
-std::vector<int> neighbors_3d_nnn(int L) {
+std::vector<int> neighbors_cubic_nnn(int L) {
     int N = L * L * L;
     std::vector<int> neigh(N * 8);
 

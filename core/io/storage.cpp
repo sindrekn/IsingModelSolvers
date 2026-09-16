@@ -1,26 +1,38 @@
 #include "core/io/storage.hpp"
 
-void create_directory(const std::string& path) {
+void create_directory(const std::string& path, int run_start, int run_end) {
     if (mkdir(path.c_str(), 0777) == -1) {
+        bool files_exist = false;
         if (errno == EEXIST) {
-            std::cerr << "Warning: Directory already exists: " << path << std::endl;
+            for (int run_id = run_start; run_id <= run_end; ++run_id) {
+                std::string filename = path + "/Snapshots_" + std::to_string(run_id) + ".dat";
+                if (std::filesystem::exists(filename)) {
+                    files_exist = true;
+                    break;
+                }
+            }
+            if (files_exist) {
+                std::cerr << "Warning: Files already exist in the directory: " << path << std::endl;
+            }
         } else {
             std::cerr << "Warning: Failed to create directory: " << path
                        << " (" << std::strerror(errno) << ")" << std::endl;
         }
 
-        std::cerr << "Continue anyway? [y/n]: ";
-        char response;
-        std::cin >> response;
+        if (files_exist) {
+            std::cerr << "Continue anyway? [y/n]: ";
+            char response;
+            std::cin >> response;
 
-        if (response != 'y' && response != 'Y') {
-            std::cerr << "Aborting." << std::endl;
-            std::exit(EXIT_FAILURE);
+            if (response != 'y' && response != 'Y') {
+                std::cerr << "Aborting." << std::endl;
+                std::exit(EXIT_FAILURE);
+            }
         }
     }
 }
 
-std::vector<std::string> setup_temperature_directories(const std::vector<double>& temps, const std::string& base_dir) {
+std::vector<std::string> setup_temperature_directories(const std::vector<double>& temps, const std::string& base_dir, int run_start, int run_end) {
     if (!std::filesystem::exists(base_dir)) {
         std::cerr << "Error: Base directory does not exist: " << base_dir << std::endl;
         return {};
@@ -44,7 +56,7 @@ std::vector<std::string> setup_temperature_directories(const std::vector<double>
     std::vector<std::string> temp_dirs;
     for (std::size_t temp_index = 0; temp_index < temps.size(); temp_index++) {
         std::string temp_dir = base_dir + "/temp_" + std::to_string(temp_index);
-        create_directory(temp_dir);
+        create_directory(temp_dir, run_start, run_end);
         temp_dirs.push_back(temp_dir);
     }
     return temp_dirs;

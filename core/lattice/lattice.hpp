@@ -15,16 +15,16 @@
 // between two sites.
 // ----------------------------------------------------------
 
-std::vector<int> neighbors_2d_nn(int L); 
+std::vector<int> neighbors_quadratic(int L); 
 
-std::vector<int> neighbors_2d_nnn(int L);
+std::vector<int> neighbors_quadratic_nnn(int L);
 
 std::vector<int> neighbors_triangular(int Lx, int Ly); 
 
 std::vector<int> neighbors_honeycomb(int Lx, int Ly); 
 
-std::vector<int> neighbors_3d_nn(int L);
+std::vector<int> neighbors_cubic(int L);
 
-std::vector<int> neighbors_3d_nnn(int L);
+std::vector<int> neighbors_cubic_nnn(int L);
 
 #endif // CORE_LATTICE_HPP

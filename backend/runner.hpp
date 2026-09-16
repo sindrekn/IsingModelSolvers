@@ -20,13 +20,13 @@ public:
         const std::vector<std::string>& temp_dirs
     );
 
-    void nn_2d_solver();
+    void quadratic_solver();
     void wolff_solver();
-    void nnn_2d_solver();
+    void quadratic_nnn_solver();
     void triangular_solver(int Lx, int Ly);
     void honeycomb_solver(int Lx, int Ly);
-    void nn_3d_solver();
-    void nnn_3d_solver();
+    void cubic_solver();
+    void cubic_nnn_solver();
 
 private:
     int L;
