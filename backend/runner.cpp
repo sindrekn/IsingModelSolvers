@@ -417,7 +417,7 @@ void run_ising_solver::cubic_solver() {
 }
 
 void run_ising_solver::cubic_nnn_solver() {
-    int N = L * L;
+    int N = L * L * L;
     int W = num_words(N);
     auto p = params::defaults(L);
 

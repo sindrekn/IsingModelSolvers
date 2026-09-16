@@ -22,3 +22,10 @@ For running analysis:
 g++ -O3 -shared -std=c++17 -fPIC $(python3 -m pybind11 --includes) file_reader.cpp -o file_reader$(python3-config --extension-suffix)
 
 # Then run the pyhton script as normal
+
+# To compile the file_reader.cpp for python packages: 
+g++ -O3 -Wall -shared -std=c++17 -fPIC \
+    $(python3 -m pybind11 --includes) \
+    file_reader.cpp \
+    -o file_reader$(python3-config --extension-suffix)
+

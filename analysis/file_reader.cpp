@@ -34,7 +34,7 @@ void print_lattice_snapshots(const std::string& filepath, int num_spins) {
 
         if (num_words != expected_words) {
             std::cerr << "  Warning: expected " << expected_words << " words for a "
-                      << lattice_dim << "x" << lattice_dim << " lattice, got "
+                      << num_spins << " spin lattice, got "
                       << num_words << ". Skipping unpack.\n";
             // still need to consume the data bytes to stay aligned for the next header
             file.seekg(static_cast<std::streamoff>(num_words * sizeof(uint64_t)), std::ios::cur);
@@ -51,18 +51,16 @@ void print_lattice_snapshots(const std::string& filepath, int num_spins) {
 
         // Unpack bits into the lattice, row-major, LSB-first within each word
         double avg_mag = 0.0;
-        for (int row = 0; row < lattice_dim; ++row) {
-            for (int col = 0; col < lattice_dim; ++col) {
-                int spin_idx = row * lattice_dim + col;
-                int word_idx = spin_idx / 64;
-                int bit_idx  = spin_idx % 64;
-                int bit = static_cast<int>((state[word_idx] >> bit_idx) & 1ULL);
-                std::cout << (bit ? " +1" : " -1");
-                avg_mag += (bit ? 1 : -1);
-            }
-            std::cout << "\n";
+        for (int spin_idx = 0; spin_idx < num_spins; ++spin_idx) {
+            int word_idx = spin_idx / 64;
+            int bit_idx  = spin_idx % 64;
+            int bit = static_cast<int>((state[word_idx] >> bit_idx) & 1ULL);
+            std::cout << (bit ? " +1" : " -1");
+            avg_mag += (bit ? 1 : -1);
         }
-        avg_mag /= (lattice_dim * lattice_dim);
+        std::cout << "\n";
+        
+        avg_mag /= (num_spins);
         std::cout << "Average Magnetization: " << avg_mag << "\n";
 
         ++snapshot_index;
@@ -71,13 +69,12 @@ void print_lattice_snapshots(const std::string& filepath, int num_spins) {
     std::cout << "Total snapshots read: " << snapshot_index << "\n";
 }
 
-std::vector<double> return_avg_mag(const std::string& filepath, int lattice_dim) {
+std::vector<double> return_avg_mag(const std::string& filepath, int num_spins) {
     std::ifstream file(filepath, std::ios::binary);
     if (!file.is_open()) {
         throw std::runtime_error("Failed to open file: " + filepath);
     }
 
-    const int num_spins = lattice_dim * lattice_dim;
     const uint64_t expected_words = (num_spins + 63) / 64; // ceil division, bit-packed
 
     int snapshot_index = 0;
@@ -97,7 +94,7 @@ std::vector<double> return_avg_mag(const std::string& filepath, int lattice_dim)
 
         if (num_words != expected_words) {
             std::cerr << "  Warning: expected " << expected_words << " words for a "
-                      << lattice_dim << "x" << lattice_dim << " lattice, got "
+                      << num_spins << " spin lattice, got "
                       << num_words << ". Skipping unpack.\n";
             // still need to consume the data bytes to stay aligned for the next header
             file.seekg(static_cast<std::streamoff>(num_words * sizeof(uint64_t)), std::ios::cur);
@@ -114,16 +111,13 @@ std::vector<double> return_avg_mag(const std::string& filepath, int lattice_dim)
 
         // Unpack bits into the lattice, row-major, LSB-first within each word
         double avg_mag = 0.0;
-        for (int row = 0; row < lattice_dim; ++row) {
-            for (int col = 0; col < lattice_dim; ++col) {
-                int spin_idx = row * lattice_dim + col;
-                int word_idx = spin_idx / 64;
-                int bit_idx  = spin_idx % 64;
-                int bit = static_cast<int>((state[word_idx] >> bit_idx) & 1ULL);
-                avg_mag += (bit ? 1 : -1);
-            }
+        for (int spin_idx = 0; spin_idx < num_spins; ++spin_idx) {
+            int word_idx = spin_idx / 64;
+            int bit_idx  = spin_idx % 64;
+            int bit = static_cast<int>((state[word_idx] >> bit_idx) & 1ULL);
+            avg_mag += (bit ? 1 : -1);
         }
-        avg_mag /= (lattice_dim * lattice_dim);
+        avg_mag /= (num_spins);
         ++snapshot_index;
         avg_mags.push_back(avg_mag);
     }
