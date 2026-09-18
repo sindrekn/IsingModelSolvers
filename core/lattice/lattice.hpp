@@ -27,4 +27,23 @@ std::vector<int> neighbors_cubic(int L);
 
 std::vector<int> neighbors_cubic_nnn(int L);
 
+struct LongRange_DistanceResult {
+    std::vector<int> dx;
+    std::vector<int> dy;
+    std::vector<double> J_r;
+};
+
+LongRange_DistanceResult LongRange_DistancePrecompute(int L, double sigma);
+
+struct LB_ClusterPrecomputeResult {
+    std::vector<std::vector<double>> scale;
+    std::vector<std::vector<double>> cumulativeProb;
+};
+
+LB_ClusterPrecomputeResult LB_ClusterPrecompute(
+    const LongRange_DistanceResult& distanceResult,
+    const std::vector<double> beta_schedule,
+    int L
+    );
+
 #endif // CORE_LATTICE_HPP

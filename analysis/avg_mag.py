@@ -67,7 +67,7 @@ def parse_args():
         help="Number of spins in the lattice"
     )
     parser.add_argument(
-        "-s", "--ising-solver",
+        "-I", "--ising-solver",
         dest="ising_solver",
         type=str,
         required=True,
@@ -94,11 +94,21 @@ def parse_args():
         required=False,
         help="Critical temperature for the Ising model"
     )
+    parser.add_argument(
+        "-si", "--sigma-index",
+        dest="sigma_index",
+        type=str,
+        required=False,
+        help="Index for sigma value (only for lrim solver)"
+    )
     return parser.parse_args()
 
 if __name__ == "__main__":
     args = parse_args()
-    base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/" + args.ising_solver + "/test1/L" + str(args.L);
+    if args.ising_solver == "lrim":
+        base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/LRIM/test1/L" + str(args.L) + "/sigma_" + args.sigma_index
+    else: 
+        base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/" + args.ising_solver + "/test1/L" + str(args.L)
 
     plot_avg_magnetization(args.num_spins, args.num_temps, args.num_runs, base_dir, args.t_c)
 

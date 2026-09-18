@@ -32,6 +32,54 @@ void create_directory(const std::string& path, int run_start, int run_end) {
     }
 }
 
+std::string setup_sigma_directory(const std::string& base_dir, double sigma, int sigma_index) {
+    if (!std::filesystem::exists(base_dir)) {
+        std::cerr << "Error: Base directory does not exist: " << base_dir << std::endl;
+        return "";
+    }
+
+    std::string sigma_index_file_path = base_dir + "/sigma_index.txt";
+    
+    if (std::filesystem::exists(sigma_index_file_path)) {
+        std::ofstream sigma_index_file(sigma_index_file_path, std::ios::app);
+
+        if (sigma_index_file.is_open()) {
+            sigma_index_file << sigma_index << "\t \t" << sigma << "\n";
+        } else {
+            std::cerr << "Error opening sigma_index.txt for appending." << std::endl;
+            return "";
+        }
+    
+        sigma_index_file.close();
+    
+    } else {
+        std::fstream sigma_index_file(sigma_index_file_path, std::ios::out);
+
+        if (sigma_index_file) {
+            sigma_index_file << "Index\tSigma\n";
+            sigma_index_file << sigma_index << "\t \t" << sigma << "\n";
+            sigma_index_file.close();
+        }
+        else {
+            std::cerr << "Error opening sigma_index.txt for writing." << std::endl;
+            return "";
+        }
+    }
+
+    std::string sigma_dir = base_dir + "/sigma_" + std::to_string(sigma_index);
+
+    if (mkdir(sigma_dir.c_str(), 0777) == -1) {
+        if (errno == EEXIST) {
+            std::cerr << "Warning: Sigma directory already exists: " << sigma_dir << std::endl;
+        } else {
+            std::cerr << "Warning: Failed to create sigma directory: " << sigma_dir
+                    << " (" << std::strerror(errno) << ")" << std::endl;
+        }
+    }
+
+    return sigma_dir;
+}
+
 std::vector<std::string> setup_temperature_directories(const std::vector<double>& temps, const std::string& base_dir, int run_start, int run_end) {
     if (!std::filesystem::exists(base_dir)) {
         std::cerr << "Error: Base directory does not exist: " << base_dir << std::endl;

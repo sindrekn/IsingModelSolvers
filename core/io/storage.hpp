@@ -21,6 +21,12 @@ std::vector<std::string> setup_temperature_directories(
     int run_end
 );
 
+std::string setup_sigma_directory(
+    const std::string& base_dir, 
+    double sigma, 
+    int sigma_index
+);
+
 // ---------------------------------------------------------------------
 // StateWriter
 //

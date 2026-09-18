@@ -6,6 +6,8 @@
 #include <cstdint>
 #include <cstring>
 
+#include "core/lattice/lattice.hpp"
+
 void quadratic(
     const int*              neighbors,
     const double*           BetaJS_row,
@@ -72,5 +74,33 @@ void cubic_nnn(
     uint64_t*               state,
     std::uniform_real_distribution<double>& udist,
     std::mt19937&           rng); 
+
+std::vector<double> construct_h(
+    const int N,
+    uint64_t* state,
+    const LongRange_DistanceResult& distanceResult
+);
+
+void FieldUpdate(
+    const LongRange_DistanceResult& distanceResult,
+    std::vector<double>&     h,
+    int                     N, 
+    int                     L,
+    uint64_t*               state,
+    double                   Beta,
+    std::uniform_real_distribution<double>& udist,
+    std::mt19937&           rng
+    );
+
+void LuijtenBloteCluster(
+    const LB_ClusterPrecomputeResult& clusterResult,
+    const LongRange_DistanceResult&      distanceResult,
+    int                     N, 
+    int                     L,
+    uint64_t*               state,
+    int                     beta_id,
+    std::uniform_real_distribution<double>& udist,
+    std::mt19937&           rng
+    );
 
 #endif // SOLVERS_SOLVERS_HPP

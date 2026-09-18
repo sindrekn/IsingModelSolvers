@@ -27,6 +27,8 @@ public:
     void honeycomb_solver(int Lx, int Ly);
     void cubic_solver();
     void cubic_nnn_solver();
+    void lrim(double sigma);
+    void lb(double sigma);
 
 private:
     int L;

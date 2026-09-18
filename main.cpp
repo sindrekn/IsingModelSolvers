@@ -18,9 +18,9 @@ int main(int argc, char *argv[])
     CLI::App app{"Ising Model Solver"};
 
     std::string ising_solver; 
-    app.add_option("--ising_solver", ising_solver, "Ising solver to use (quadratic, wolff, quadratic_nnn, triangular, honeycomb, cubic, cubic_nnn)")
+    app.add_option("--ising_solver", ising_solver, "Ising solver to use (quadratic, wolff, quadratic_nnn, triangular, honeycomb, cubic, cubic_nnn, lrim)")
         ->required()
-        ->check(CLI::IsMember({"quadratic", "wolff", "quadratic_nnn", "triangular", "honeycomb", "cubic", "cubic_nnn"}));
+        ->check(CLI::IsMember({"quadratic", "wolff", "quadratic_nnn", "triangular", "honeycomb", "cubic", "cubic_nnn", "lrim"}));
 
     int L = 0; 
     app.add_option("--L", L, "Lattice size (LxL for 2D, LxLxL for 3D)")
@@ -58,6 +58,14 @@ int main(int argc, char *argv[])
         ->required()
         ->check(CLI::NonNegativeNumber);
 
+    double sigma = 0.0;
+    app.add_option("--sigma", sigma, "Sigma value for long-range interactions (only for lrim solver)")
+        ->check(CLI::PositiveNumber);
+    
+    int sigma_index = 0;
+    app.add_option("--sigma_index", sigma_index, "Index for sigma value (only for lrim solver)")
+        ->check(CLI::NonNegativeNumber);
+
     CLI11_PARSE(app, argc, argv);
 
     if (ising_solver == "triangular" || ising_solver == "honeycomb") {
@@ -87,6 +95,11 @@ int main(int argc, char *argv[])
         return 1;
     }
 
+    if (sigma < 0 || sigma_index < 0) {
+        std::cerr << "Error: Invalid sigma or sigma_index. Ensure that both are non-negative." << std::endl;
+        return 1;
+    }
+
     auto p = params::defaults(L);
 
     std::vector<double> temp_schedule = peak_temperature_schedule(
@@ -96,8 +109,17 @@ int main(int argc, char *argv[])
     int num_threads = static_cast<int>(
         std::min(static_cast<unsigned>(run_end - run_start),
                 std::max(1u, std::thread::hardware_concurrency())));
-
-    std::string base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/" + ising_solver + "/test1/L" + std::to_string(L);
+    
+    std::string base_dir; 
+    if (ising_solver == "lrim") {
+        base_dir = setup_sigma_directory(
+            "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/LRIM/test1/L" + std::to_string(L), 
+            sigma, 
+            sigma_index
+        );
+    } else {
+        base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/" + ising_solver + "/test1/L" + std::to_string(L);
+    }
 
     // -- Test the path --
     if (!std::filesystem::exists(base_dir)) {
@@ -129,6 +151,10 @@ int main(int argc, char *argv[])
         solver.cubic_solver();
     } else if (ising_solver == "cubic_nnn") {
         solver.cubic_nnn_solver();
+    } else if (ising_solver == "lrim") {
+        solver.lrim(sigma);
+    } else if (ising_solver == "lb") {
+        solver.lb(sigma);
     } else {
         std::cerr << "Error: Unknown Ising solver specified." << std::endl;
         return 1;

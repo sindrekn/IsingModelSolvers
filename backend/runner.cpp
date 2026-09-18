@@ -477,6 +477,126 @@ void run_ising_solver::cubic_nnn_solver() {
     return;
 }
 
+void run_ising_solver::lrim(double sigma) {
+    int N = L * L;
+    int W = num_words(N);
+    auto p = params::defaults(L);
+
+    std::vector<std::thread> threads;
+    threads.reserve(num_threads);
+
+    LongRange_DistanceResult distanceResult = LongRange_DistancePrecompute(L, sigma); 
+    
+    std::cout << "Long-range interactions on a quadratic lattice of size " << L << "x" << L << std::endl;
+    std::cout << "Runs number " << run_start << " to " << run_end << " on " << num_threads << " threads" << std::endl;
+
+    int start = run_start;
+    for (int t = 0; t < num_threads; t++) {
+        int end = start + runs_per_thread + (t < extra ? 1 : 0);
+
+        threads.emplace_back([&, start, end]() {
+            std::uniform_real_distribution <double> udist(0.0, 1.0);
+
+            for (int run = start; run < end; run++) {
+                std::mt19937 rng(std::random_device{}() + run);
+
+                // Working state for this run — lives on the thread's stack
+                std::vector<uint64_t> state(W);
+                random_binary_state(state.data(), N, rng);
+
+                std::vector<double> h_local = construct_h(N, state.data(), distanceResult);
+
+                for (int temp_index = 0; temp_index < p.temp_updates; temp_index++) {
+                    StateWriter writer(temp_dirs[temp_index], run);
+                    
+                    for (int sweep = 0; sweep < p.sweeps_per_temp; sweep++) {
+                        FieldUpdate(
+                            distanceResult,
+                            h_local,
+                            N,
+                            L,
+                            state.data(),
+                            beta_schedule[temp_index],
+                            udist,
+                            rng);
+
+                        if (sweep % p.store_step == 0) {
+                            writer.add_snapshot(state);
+                        }
+                    }
+                    // Always store the final state of each temperature step
+                    writer.add_snapshot(state);
+                    writer.close();
+                }
+            }
+        });
+        start = end;
+    }
+    for (auto& t : threads)
+        t.join();
+
+    return;
+}
+
+void run_ising_solver::lb(double sigma) {
+    int N = L * L;
+    int W = num_words(N);
+    auto p = params::defaults(L);
+
+    std::vector<std::thread> threads;
+    threads.reserve(num_threads);
+
+    LongRange_DistanceResult distanceResult = LongRange_DistancePrecompute(L, sigma); 
+    LB_ClusterPrecomputeResult clusterResult = LB_ClusterPrecompute(distanceResult, beta_schedule, L);
+    
+    std::cout << "Long-range interactions with Luijten-Blote cluster updates on a quadratic lattice of size " << L << "x" << L << std::endl;
+    std::cout << "Runs number " << run_start << " to " << run_end << " on " << num_threads << " threads" << std::endl;
+
+    int start = run_start;
+    for (int t = 0; t < num_threads; t++) {
+        int end = start + runs_per_thread + (t < extra ? 1 : 0);
+
+        threads.emplace_back([&, start, end]() {
+            std::uniform_real_distribution <double> udist(0.0, 1.0);
+
+            for (int run = start; run < end; run++) {
+                std::mt19937 rng(std::random_device{}() + run);
+
+                // Working state for this run — lives on the thread's stack
+                std::vector<uint64_t> state(W);
+                random_binary_state(state.data(), N, rng);
+
+                for (int temp_index = 0; temp_index < p.temp_updates; temp_index++) {
+                    StateWriter writer(temp_dirs[temp_index], run);
+                    
+                    for (int sweep = 0; sweep < p.sweeps_per_temp; sweep++) {
+                        LuijtenBloteCluster(
+                            clusterResult,
+                            distanceResult,
+                            N,
+                            L,
+                            state.data(),
+                            temp_index,
+                            udist,
+                            rng);
+
+                        if (sweep % p.store_step == 0) {
+                            writer.add_snapshot(state);
+                        }
+                    }
+                    // Always store the final state of each temperature step
+                    writer.add_snapshot(state);
+                    writer.close();
+                }
+            }
+        });
+        start = end;
+    }
+    for (auto& t : threads)
+        t.join();
+
+    return;
+}
 
 
 

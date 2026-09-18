@@ -30,7 +30,7 @@ struct params {
             .J1                     = 1.0,
             .J2                     = 1.0,
             .sharpness              = 1.6,
-            .temp_updates           = 50,
+            .temp_updates           = 60,
             .sweeps_per_temp        = L*L,
             .sweeps_per_temp_3d     = L*L*L,
             .store_step              = 500,

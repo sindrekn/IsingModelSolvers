@@ -43,14 +43,5 @@ target_link_libraries(run PRIVATE runner core CLI11::CLI11)
 add_executable(lattice_viz LatticeViz.cpp)
 target_link_libraries(lattice_viz PRIVATE core)
 
-# # --- Python bindings (file_reader) ---
-# find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
-
-# FetchContent_Declare(
-#     pybind11
-#     GIT_REPOSITORY https://github.com/pybind/pybind11.git
-#     GIT_TAG        v2.13.6
-# )
-# FetchContent_MakeAvailable(pybind11)
-
-# pybind11_add_module(file_reader analysis/file_reader.cpp)
+add_executable(BenchmarkSolver BenchmarkSolver.cpp)
+target_link_libraries(BenchmarkSolver PRIVATE core solvers CLI11::CLI11)
