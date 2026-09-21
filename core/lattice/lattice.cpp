@@ -193,15 +193,15 @@ LongRange_DistanceResult LongRange_DistancePrecompute(int L, double sigma)
     }
 
     // Determine the coupeling constant based on the system size and sigma
-    double sum = 0.0f;
+    double sum = 0.0;
     for (int j = 0; j < N - 1; ++j) {
-        sum += 1.0f / std::pow(r[j], (2.0f + sigma));
+        sum += 1.0 / std::pow(r[j], (2.0 + sigma));
     }
 
-    double c_norm = 4.0f / sum; // Normalization constant
+    double c_norm = 4.0 / sum; // Normalization constant
 
     for (int j = 0; j < N - 1; ++j) {
-        result.J_r[j] = c_norm / std::pow(r[j], (2.0f + sigma));
+        result.J_r[j] = c_norm / std::pow(r[j], (2.0 + sigma));
     }
 
     // Create a vector of indices [0, 1, 2, ..., N-2]
@@ -264,14 +264,14 @@ LB_ClusterPrecomputeResult LB_ClusterPrecompute(
         // Compute the bondProb for each distance (p)
         for (int k = 0; k < N - 1; ++k) {
             double J_k = distanceResult.J_r[k];
-            bondProb[k][id] = 1.0f - std::exp(-2.0f * beta_schedule[id] * J_k);
+            bondProb[k][id] = 1.0 - std::exp(-2.0 * beta_schedule[id] * J_k);
         }
 
         // Compute noBondProb (q)
         noBondProb[0][id] = bondProb[0][id];
-        double product = 1.0f; 
+        double product = 1.0; 
         for (int l = 1; l < N - 1; l++) {
-            product *= (1.0f - bondProb[l - 1][id]);
+            product *= (1.0 - bondProb[l - 1][id]);
             noBondProb[l][id] = bondProb[l][id] * product;
         }
 

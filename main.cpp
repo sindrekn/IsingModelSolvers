@@ -18,9 +18,9 @@ int main(int argc, char *argv[])
     CLI::App app{"Ising Model Solver"};
 
     std::string ising_solver; 
-    app.add_option("--ising_solver", ising_solver, "Ising solver to use (quadratic, wolff, quadratic_nnn, triangular, honeycomb, cubic, cubic_nnn, lrim)")
+    app.add_option("--ising_solver", ising_solver, "Ising solver to use (quadratic, wolff, quadratic_nnn, triangular, honeycomb, cubic, cubic_nnn, lrim, lb)")
         ->required()
-        ->check(CLI::IsMember({"quadratic", "wolff", "quadratic_nnn", "triangular", "honeycomb", "cubic", "cubic_nnn", "lrim"}));
+        ->check(CLI::IsMember({"quadratic", "wolff", "quadratic_nnn", "triangular", "honeycomb", "cubic", "cubic_nnn", "lrim", "lb"}));
 
     int L = 0; 
     app.add_option("--L", L, "Lattice size (LxL for 2D, LxLxL for 3D)")
@@ -113,7 +113,13 @@ int main(int argc, char *argv[])
     std::string base_dir; 
     if (ising_solver == "lrim") {
         base_dir = setup_sigma_directory(
-            "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/LRIM/test1/L" + std::to_string(L), 
+            "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/lrim/test1/L" + std::to_string(L), 
+            sigma, 
+            sigma_index
+        );
+    } else if (ising_solver == "lb") {
+        base_dir = setup_sigma_directory(
+            "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/lb/test1/L" + std::to_string(L), 
             sigma, 
             sigma_index
         );

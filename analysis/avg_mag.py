@@ -106,7 +106,9 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     if args.ising_solver == "lrim":
-        base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/LRIM/test1/L" + str(args.L) + "/sigma_" + args.sigma_index
+        base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/lrim/test1/L" + str(args.L) + "/sigma_" + args.sigma_index
+    elif args.ising_solver == "lb":
+        base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/lb/test1/L" + str(args.L) + "/sigma_" + args.sigma_index
     else: 
         base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/" + args.ising_solver + "/test1/L" + str(args.L)
 

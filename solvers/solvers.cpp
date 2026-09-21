@@ -260,7 +260,7 @@ void update_h(
 
         int j = x + L*y;
 
-        h[j] -= 2.0f * s_i * distanceResult.J_r[k];
+        h[j] -= 2.0 * s_i * distanceResult.J_r[k];
     }
 }
 
@@ -270,7 +270,7 @@ void FieldUpdate(
     int                     N, 
     int                     L,
     uint64_t*               state,
-    float                   Beta,
+    double                   Beta,
     std::uniform_real_distribution<double>& udist,
     std::mt19937&           rng
     )
@@ -279,7 +279,7 @@ void FieldUpdate(
 
         int s_i = 2 * get_bit(state, id) - 1; // Convert {0,1} to {-1,1} and flip the sign for the energy calculation
         
-        float dE = 2 * s_i * h[id];
+        double dE = 2 * s_i * h[id];
         if (dE <= 0 || udist(rng) < std::exp(-Beta * dE)) {
             flip_bit(state, id);
             update_h(distanceResult, h, id, s_i, N, L);
@@ -336,7 +336,7 @@ void LuijtenBloteCluster(
         //-----------------------------------
         // Find candidate neighbours
         //-----------------------------------
-        int m = 0;
+        int m = -1;
 
         while(m < N - 2)
         {
@@ -345,10 +345,10 @@ void LuijtenBloteCluster(
             //--------------------------------
 
             double u = udist(rng);
+            double cum_m = (m < 0) ? 0.0 : clusterResult.cumulativeProb[m][temp_index];
+            double sc = clusterResult.scale[m + 1][temp_index];
 
-            float c_max = (clusterResult.cumulativeProb[N-2][temp_index] - 
-                                clusterResult.cumulativeProb[m][temp_index]) 
-                                * clusterResult.scale[m + 1][temp_index];
+            double c_max = (clusterResult.cumulativeProb[N-2][temp_index] - cum_m) * sc;
 
             if (u > c_max) {
                 break; // No more candidates
@@ -358,9 +358,7 @@ void LuijtenBloteCluster(
             int n = m + 1;
             
             while(true) { 
-                if ((clusterResult.cumulativeProb[n][temp_index] - 
-                    clusterResult.cumulativeProb[m][temp_index]) 
-                    *clusterResult.scale[m + 1][temp_index]  < u) 
+                if ((clusterResult.cumulativeProb[n][temp_index] - cum_m) * sc < u)
                     n += 1; 
                 else 
                     break; 
