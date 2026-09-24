@@ -6,9 +6,9 @@
 struct params {
     // --- Lattice ---
     int    L;               // lattice side length (LxL spins)
-    double J;        // coupling constant (positive for ferromagnetic)
 
     // --- Interactions ---
+    double J;        // coupling constant (positive for ferromagnetic)
     double J1;       // nearest-neighbor interaction strength
     double J2;       // next-nearest-neighbor interaction strength
 
@@ -31,7 +31,7 @@ struct params {
             .J2                     = 1.0,
             .sharpness              = 1.6,
             .temp_updates           = 60,
-            .sweeps_per_temp        = 2*L*L,
+            .sweeps_per_temp        = L*L,
             .sweeps_per_temp_3d     = L*L*L,
             .store_step              = 500,
         };

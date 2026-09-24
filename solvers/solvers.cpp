@@ -33,15 +33,17 @@ void quadratic(
 
 
 void wolff_cluster(
+    int             num_neighbors, 
     const int*      neighbors,
     double          P_add,
     uint64_t*       state,
     std::vector<int>& stack,
     std::uniform_real_distribution<double>& udist,
-    std::uniform_int_distribution<int>& site_dist,
+    std::uniform_int_distribution<int>& sitedist,
     std::mt19937&   rng)
 {
-    int seed      = site_dist(rng);
+
+    int seed      = sitedist(rng);
     int seed_spin = get_bit(state, seed);
 
     stack.clear();
@@ -52,14 +54,15 @@ void wolff_cluster(
         int cur = stack.back();
         stack.pop_back();
 
-        for (int d = 0; d < 4; d++) {
-            int nb = neighbors[cur * 4 + d];
+        for (int d = 0; d < num_neighbors; d++) {
+            int nb = neighbors[cur * num_neighbors + d];
             if (get_bit(state, nb) == seed_spin && udist(rng) < P_add) {
                 stack.push_back(nb);
                 flip_bit(state, nb);
             }
         }
     }
+
 }
 
 
@@ -303,101 +306,103 @@ void LuijtenBloteCluster(
 {
     int update = 0; 
 
-    std::vector<int> cluster;
-    std::vector<int> stack; 
-    std::vector<bool> inCluster(N, false);
+    while (update < N) {
 
-    //---------------------------------------
-    // Choose random seed
-    //---------------------------------------
+        std::vector<int> cluster;
+        std::vector<int> stack; 
+        std::vector<bool> inCluster(N, false);
 
-    std::uniform_int_distribution<int> siteDist(0,N-1);
-    int seed = siteDist(rng);
+        //---------------------------------------
+        // Choose random seed
+        //---------------------------------------
 
-    cluster.clear();
-    stack.clear();
+        std::uniform_int_distribution<int> siteDist(0,N-1);
+        int seed = siteDist(rng);
 
-    std::fill(inCluster.begin(), inCluster.end(), false);
+        cluster.clear();
+        stack.clear();
 
-    cluster.push_back(seed);
-    stack.push_back(seed);
-    inCluster[seed] = true;
+        std::fill(inCluster.begin(), inCluster.end(), false);
 
-    //---------------------------------------
-    // Grow cluster
-    //---------------------------------------
+        cluster.push_back(seed);
+        stack.push_back(seed);
+        inCluster[seed] = true;
 
-    while(!stack.empty()) {
-        int i = stack.back();
-        int xi = i % L;
-        int yi = i / L;
-        stack.pop_back();
+        //---------------------------------------
+        // Grow cluster
+        //---------------------------------------
 
-        //-----------------------------------
-        // Find candidate neighbours
-        //-----------------------------------
-        int m = -1;
+        while(!stack.empty()) {
+            int i = stack.back();
+            int xi = i % L;
+            int yi = i / L;
+            stack.pop_back();
 
-        while(m < N - 2)
-        {
-            //--------------------------------
-            // LB jump
-            //--------------------------------
+            //-----------------------------------
+            // Find candidate neighbours
+            //-----------------------------------
+            int m = -1;
 
-            double u = udist(rng);
-            double cum_m = (m < 0) ? 0.0 : clusterResult.cumulativeProb[m][temp_index];
-            double sc = clusterResult.scale[m + 1][temp_index];
+            while(m < N - 2)
+            {
+                //--------------------------------
+                // LB jump
+                //--------------------------------
 
-            double c_max = (clusterResult.cumulativeProb[N-2][temp_index] - cum_m) * sc;
+                double u = udist(rng);
+                double cum_m = (m < 0) ? 0.0 : clusterResult.cumulativeProb[m][temp_index];
+                double sc = clusterResult.scale[m + 1][temp_index];
 
-            if (u > c_max) {
-                break; // No more candidates
-            }
+                double c_max = (clusterResult.cumulativeProb[N-2][temp_index] - cum_m) * sc;
 
-            // Search in the cumulative distribution for the next candidate
-            int n = m + 1;
-            
-            while(true) { 
-                if ((clusterResult.cumulativeProb[n][temp_index] - cum_m) * sc < u)
-                    n += 1; 
-                else 
-                    break; 
+                if (u > c_max) {
+                    break; // No more candidates
                 }
 
-            //--------------------------------
-            // Convert distance into lattice site
-            //--------------------------------
+                // Search in the cumulative distribution for the next candidate
+                int n = m + 1;
+                
+                while(true) { 
+                    if ((clusterResult.cumulativeProb[n][temp_index] - cum_m) * sc < u)
+                        n += 1; 
+                    else 
+                        break; 
+                    }
 
-            int dx = distanceResult.dx[n];
-            int dy = distanceResult.dy[n];
+                //--------------------------------
+                // Convert distance into lattice site
+                //--------------------------------
 
-            int xj = (xi + dx + L) % L;
-            int yj = (yi + dy + L) % L;
+                int dx = distanceResult.dx[n];
+                int dy = distanceResult.dy[n];
 
-            int j = (int)(xj + yj * L);
+                int xj = (xi + dx + L) % L;
+                int yj = (yi + dy + L) % L;
 
-            //--------------------------------
-            // Same spin?
-            //--------------------------------
+                int j = (int)(xj + yj * L);
 
-            if(are_equal(state,i,j) && !inCluster[j])
-            {
-                inCluster[j] = true;
+                //--------------------------------
+                // Same spin?
+                //--------------------------------
 
-                cluster.push_back(j);
-                stack.push_back(j);
+                if(are_equal(state,i,j) && !inCluster[j])
+                {
+                    inCluster[j] = true;
+
+                    cluster.push_back(j);
+                    stack.push_back(j);
+                }
+                m = n;
             }
-            m = n;
         }
+        //---------------------------------------
+        // Flip cluster
+        //---------------------------------------
+
+        for(int i : cluster)
+            flip_bit(state, i);
+
+        update += cluster.size(); 
     }
-    //---------------------------------------
-    // Flip cluster
-    //---------------------------------------
-
-    for(int i : cluster)
-        flip_bit(state, i);
-
-    update += cluster.size(); 
-
 }
 

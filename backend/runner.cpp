@@ -96,7 +96,7 @@ void run_ising_solver::quadratic_solver() {
     return;
 }
 
-void run_ising_solver::wolff_solver() {
+void run_ising_solver::wolff_quadratic_solver() {
     int N = L * L;
     int W = num_words(N);
     auto p = params::defaults(L);
@@ -105,7 +105,8 @@ void run_ising_solver::wolff_solver() {
     threads.reserve(num_threads);
 
     std::vector<int> neighbors = neighbors_quadratic(L);
-    std::vector<double> Padd = Padd_quadratic(temp_schedule, p.J);
+    int num_neighbors = 4;
+    std::vector<double> Padd = Precompute_Padd(temp_schedule, p.J);
 
     std::cout << "2D Ising solver with nearest-neighbor interactions on a quadratic lattice of size " << L << "x" << L << " with wolff algorithm" << std::endl;
     std::cout << "Runs number " << run_start << " to " << run_end << " on " << num_threads << " threads" << std::endl;
@@ -118,7 +119,7 @@ void run_ising_solver::wolff_solver() {
             std::vector<int> stack;
             stack.reserve(N);          // allocated once per thread
             std::uniform_real_distribution<double> udist(0.0, 1.0);
-            std::uniform_int_distribution<int>    site_dist(0, N - 1);
+            std::uniform_int_distribution<int>    sitedist(0, N - 1);
 
             for (int run = start; run < end; run++) {
                 std::mt19937 rng(std::random_device{}() + run);
@@ -132,12 +133,13 @@ void run_ising_solver::wolff_solver() {
                     
                     for (int sweep = 0; sweep < p.sweeps_per_temp; sweep++) {
                         wolff_cluster(
+                            num_neighbors,
                             neighbors.data(),
                             Padd[temp_index],
                             state.data(),
                             stack,
                             udist,
-                            site_dist,
+                            sitedist,
                             rng);
 
                         if (sweep % p.store_step == 0) {
@@ -279,6 +281,70 @@ void run_ising_solver::triangular_solver(int Lx, int Ly) {
     return;
 }
 
+void run_ising_solver::wolff_triangular_solver(int Lx, int Ly) {
+    int N = Lx * Ly;
+    int W = num_words(N);
+    auto p = params::defaults(Lx);
+
+    std::vector<std::thread> threads;
+    threads.reserve(num_threads);
+
+    std::vector<int> neighbors = neighbors_triangular(Lx, Ly);
+    int num_neighbors = 6;
+    std::vector<double> Padd = Precompute_Padd(temp_schedule, p.J);
+
+    std::cout << "2D Ising solver with nearest-neighbor interactions on a triangular lattice of size " << Lx << "x" << Ly << " with wolff algorithm" << std::endl;
+    std::cout << "Runs number " << run_start << " to " << run_end << " on " << num_threads << " threads" << std::endl;
+
+    int start = run_start;
+    for (int t = 0; t < num_threads; t++) {
+        int end = start + runs_per_thread + (t < extra ? 1 : 0);
+
+        threads.emplace_back([&, start, end]() {
+            std::vector<int> stack;
+            stack.reserve(N);          // allocated once per thread
+            std::uniform_real_distribution<double> udist(0.0, 1.0);
+            std::uniform_int_distribution<int>    sitedist(0, N - 1);
+
+            for (int run = start; run < end; run++) {
+                std::mt19937 rng(std::random_device{}() + run);
+
+                // Working state for this run — lives on the thread's stack
+                std::vector<uint64_t> state(W);
+                random_binary_state(state.data(), N, rng);
+
+                for (int temp_index = 0; temp_index < p.temp_updates; temp_index++) {
+                    StateWriter writer(temp_dirs[temp_index], run);
+                    
+                    for (int sweep = 0; sweep < p.sweeps_per_temp; sweep++) {
+                        wolff_cluster(
+                            num_neighbors,
+                            neighbors.data(),
+                            Padd[temp_index],
+                            state.data(),
+                            stack,
+                            udist,
+                            sitedist,
+                            rng);
+
+                        if (sweep % p.store_step == 0) {
+                            writer.add_snapshot(state);
+                        }
+                    }
+                    // Always store the final state of each temperature step
+                    writer.add_snapshot(state);
+                    writer.close();
+                }
+            }
+        });
+        start = end;
+    }
+    for (auto& t : threads)
+        t.join();
+
+    return;
+}
+
 void run_ising_solver::honeycomb_solver(int Lx, int Ly) {
     int N = Lx * Ly;
     int W = num_words(N);
@@ -318,6 +384,70 @@ void run_ising_solver::honeycomb_solver(int Lx, int Ly) {
                             BetaJS_row,
                             state.data(),
                             udist,
+                            rng);
+
+                        if (sweep % p.store_step == 0) {
+                            writer.add_snapshot(state);
+                        }
+                    }
+                    // Always store the final state of each temperature step
+                    writer.add_snapshot(state);
+                    writer.close();
+                }
+            }
+        });
+        start = end;
+    }
+    for (auto& t : threads)
+        t.join();
+
+    return;
+}
+
+void run_ising_solver::wolff_honeycomb_solver(int Lx, int Ly) {
+    int N = Lx * Ly;
+    int W = num_words(N);
+    auto p = params::defaults(Lx);
+
+    std::vector<std::thread> threads;
+    threads.reserve(num_threads);
+
+    std::vector<int> neighbors = neighbors_honeycomb(Lx, Ly);
+    int num_neighbors = 3;
+    std::vector<double> Padd = Precompute_Padd(temp_schedule, p.J);
+
+    std::cout << "2D Ising solver with nearest-neighbor interactions on a honeycomb lattice of size " << Lx << "x" << Ly << " with wolff algorithm" << std::endl;
+    std::cout << "Runs number " << run_start << " to " << run_end << " on " << num_threads << " threads" << std::endl;
+
+    int start = run_start;
+    for (int t = 0; t < num_threads; t++) {
+        int end = start + runs_per_thread + (t < extra ? 1 : 0);
+
+        threads.emplace_back([&, start, end]() {
+            std::vector<int> stack;
+            stack.reserve(N);          // allocated once per thread
+            std::uniform_real_distribution<double> udist(0.0, 1.0);
+            std::uniform_int_distribution<int>    sitedist(0, N - 1);
+
+            for (int run = start; run < end; run++) {
+                std::mt19937 rng(std::random_device{}() + run);
+
+                // Working state for this run — lives on the thread's stack
+                std::vector<uint64_t> state(W);
+                random_binary_state(state.data(), N, rng);
+
+                for (int temp_index = 0; temp_index < p.temp_updates; temp_index++) {
+                    StateWriter writer(temp_dirs[temp_index], run);
+                    
+                    for (int sweep = 0; sweep < p.sweeps_per_temp; sweep++) {
+                        wolff_cluster(
+                            num_neighbors,
+                            neighbors.data(),
+                            Padd[temp_index],
+                            state.data(),
+                            stack,
+                            udist,
+                            sitedist,
                             rng);
 
                         if (sweep % p.store_step == 0) {
@@ -397,6 +527,70 @@ void run_ising_solver::cubic_solver() {
                                 udist,
                                 rng);
                         }
+
+                        if (sweep % p.store_step == 0) {
+                            writer.add_snapshot(state);
+                        }
+                    }
+                    // Always store the final state of each temperature step
+                    writer.add_snapshot(state);
+                    writer.close();
+                }
+            }
+        });
+        start = end;
+    }
+    for (auto& t : threads)
+        t.join();
+
+    return;
+}
+
+void run_ising_solver::wolff_cubic_solver() {
+    int N = L * L * L;
+    int W = num_words(N);
+    auto p = params::defaults(L);
+
+    std::vector<std::thread> threads;
+    threads.reserve(num_threads);
+
+    std::vector<int> neighbors = neighbors_cubic(L);
+    int num_neighbors = 6;
+    std::vector<double> Padd = Precompute_Padd(temp_schedule, p.J);
+
+    std::cout << "3D Ising solver with nearest-neighbor interactions on a cubic lattice of size " << L << "x" << L << "x" << L << " with wolff algorithm" << std::endl;
+    std::cout << "Runs number " << run_start << " to " << run_end << " on " << num_threads << " threads" << std::endl;
+
+    int start = run_start;
+    for (int t = 0; t < num_threads; t++) {
+        int end = start + runs_per_thread + (t < extra ? 1 : 0);
+
+        threads.emplace_back([&, start, end]() {
+            std::vector<int> stack;
+            stack.reserve(N);          // allocated once per thread
+            std::uniform_real_distribution<double> udist(0.0, 1.0);
+            std::uniform_int_distribution<int>    sitedist(0, N - 1);
+
+            for (int run = start; run < end; run++) {
+                std::mt19937 rng(std::random_device{}() + run);
+
+                // Working state for this run — lives on the thread's stack
+                std::vector<uint64_t> state(W);
+                random_binary_state(state.data(), N, rng);
+
+                for (int temp_index = 0; temp_index < p.temp_updates; temp_index++) {
+                    StateWriter writer(temp_dirs[temp_index], run);
+                    
+                    for (int sweep = 0; sweep < p.sweeps_per_temp; sweep++) {
+                        wolff_cluster(
+                            num_neighbors,
+                            neighbors.data(),
+                            Padd[temp_index],
+                            state.data(),
+                            stack,
+                            udist,
+                            sitedist,
+                            rng);
 
                         if (sweep % p.store_step == 0) {
                             writer.add_snapshot(state);

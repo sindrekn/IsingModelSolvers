@@ -27,6 +27,6 @@ std::vector<double> BetaJS_honeycomb(const std::vector<double>& temp_schedule, d
 std::vector<double> BetaJS_cubic(const std::vector<double>& temp_schedule, double J);
 
 // Precompute Wolff's cluster addition probabilities.
-std::vector<double> Padd_quadratic(const std::vector<double>& temp_schedule, double J);
+std::vector<double> Precompute_Padd(const std::vector<double>& temp_schedule, double J);
 
 #endif // CORE_SCHEDULE_SCHEDULE_HPP

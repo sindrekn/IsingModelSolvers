@@ -19,12 +19,13 @@ void quadratic(
     std::mt19937&           rng); 
 
 void wolff_cluster(
+    int                     num_neighbors,
     const int*              neighbors,
     double                  P_add,
     uint64_t*               state,
     std::vector<int>&       stack,
     std::uniform_real_distribution<double>& udist,
-    std::uniform_int_distribution<int>& site_dist,
+    std::uniform_int_distribution<int>& sitedist,
     std::mt19937&           rng); 
 
 void quadratic_nnn(

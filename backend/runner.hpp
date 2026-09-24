@@ -21,11 +21,14 @@ public:
     );
 
     void quadratic_solver();
-    void wolff_solver();
+    void wolff_quadratic_solver();
     void quadratic_nnn_solver();
     void triangular_solver(int Lx, int Ly);
+    void wolff_triangular_solver(int Lx, int Ly);
     void honeycomb_solver(int Lx, int Ly);
+    void wolff_honeycomb_solver(int Lx, int Ly);
     void cubic_solver();
+    void wolff_cubic_solver();
     void cubic_nnn_solver();
     void lrim(double sigma);
     void lb(double sigma);

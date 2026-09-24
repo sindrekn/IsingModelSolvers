@@ -91,7 +91,7 @@ std::vector<double> BetaJS_honeycomb(
     return BetaJS;
 }
 
-std::vector<double> Padd_quadratic(
+std::vector<double> Precompute_Padd(
     const std::vector<double>& temp_schedule, double J)
 {
     int temp_updates = static_cast<int>(temp_schedule.size());

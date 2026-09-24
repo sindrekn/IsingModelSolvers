@@ -7,8 +7,8 @@ import FSS
 from pathlib import Path
 
 
-def plot_avg_magnetization(args, base_dir):
-    """Plots the average magnetization with error bars for a given lattice size L,
+def plot_simple_ann(args, base_dir):
+    """Plots the simple avg magnitazation based ann with error bars for a given lattice size L,
 
     number of temperatures, and number of runs.
     """
@@ -24,19 +24,18 @@ def plot_avg_magnetization(args, base_dir):
         else:
             dir_path = base_path / args.ising_solver / "test1" / f"L{L}"
 
-        magnetization = np.zeros(args.num_temps)
-        magnetization_std = np.zeros(args.num_temps)
+        parameter = np.zeros(args.num_temps)
+        parameter_std = np.zeros(args.num_temps)
 
         for temp_index in range(args.num_temps):
-            avg_mags = []
+            avg_para = []
             for run_index in range(args.num_runs):
                 filename = dir_path / f"temp_{temp_index}" / f"Snapshots_{run_index}.dat"
                 filename = str(filename)  # Convert Path object to string for compatibility
-                avg_mags.append(file_reader.return_avg_mag(filename, num_spins))
+                avg_para.append(file_reader.return_simple_ann(filename, num_spins, args.ymin, args.ymax))
 
-            abs_mags = np.abs(avg_mags)
-            magnetization[temp_index] = np.mean(abs_mags)
-            magnetization_std[temp_index] = np.std(abs_mags)
+            parameter[temp_index] = np.mean(avg_para)
+            parameter_std[temp_index] = np.std(avg_para)
 
         # Read temperatures using context manager
         temp_file = dir_path / "temp_index.txt"
@@ -51,7 +50,7 @@ def plot_avg_magnetization(args, base_dir):
         # Enhanced plotting styling
         line = ax.plot(
             temperatures,
-            magnetization,
+            parameter,
             marker="o",
             markersize=5,
             linewidth=1.8,
@@ -63,8 +62,8 @@ def plot_avg_magnetization(args, base_dir):
         # Error shading matching the line color
         ax.fill_between(
             temperatures,
-            magnetization - magnetization_std,
-            magnetization + magnetization_std,
+            parameter - parameter_std,
+            parameter + parameter_std,
             color=color,
             alpha=0.18,
             linewidth=0,
@@ -83,9 +82,9 @@ def plot_avg_magnetization(args, base_dir):
 
     # Labels and Aesthetics
     ax.set_xlabel(r"Temperature ($T$)", fontsize=12, labelpad=8)
-    ax.set_ylabel(r"Average Magnetization $\langle |M| \rangle$", fontsize=12, labelpad=8)
+    ax.set_ylabel(r"Simple ANN", fontsize=12, labelpad=8)
     ax.set_title(
-        f"Average Magnetization vs Temperature ({args.ising_solver.upper()})",
+        f"Simple ANN vs Temperature ({args.ising_solver.upper()})",
         fontsize=13,
         pad=12,
         weight="semibold",
@@ -99,19 +98,19 @@ def plot_avg_magnetization(args, base_dir):
 
     # Save and show
     if args.ising_solver in ["lrim", "lb"]:
-        save_path = base_dir + f"/plots/test1/avg_magnetization/{args.ising_solver}_si_{args.sigma_index}.pdf"
+        save_path = base_dir + f"/plots/test1/simple_ann/{args.ising_solver}_si_{args.sigma_index}.pdf"
     else: 
-        save_path = base_dir + f"/plots/test1/avg_magnetization/{args.ising_solver}.pdf"
+        save_path = base_dir + f"/plots/test1/simple_ann/{args.ising_solver}.pdf"
 
     plt.tight_layout()
-    # plt.savefig(save_path, bbox_inches="tight")
-    plt.show()
+    plt.savefig(save_path, bbox_inches="tight")
+    # plt.show()
     plt.close(fig)  # Close the figure to free memory
 
-def plot_fss_avgmag(args, base_dir): 
+def plot_fss_simple_ann(args, base_dir): 
     base_path = Path(base_dir)
-    magnetization_data = []
-    mangetization_std_data = []
+    parameter_data = []
+    parameter_std_data = []
 
     for L, num_spins in zip(args.L, args.num_spins):
         if args.ising_solver in ["lrim", "lb"]:
@@ -119,22 +118,21 @@ def plot_fss_avgmag(args, base_dir):
         else:
             dir_path = base_path / args.ising_solver / "test1" / f"L{L}"
 
-        magnetization = np.zeros(args.num_temps)
-        magnetization_std = np.zeros(args.num_temps)
+        parameter = np.zeros(args.num_temps)
+        parameter_std = np.zeros(args.num_temps)
 
         for temp_index in range(args.num_temps):
-            avg_mags = []
+            avg_para = []
             for run_index in range(args.num_runs):
                 filename = dir_path / f"temp_{temp_index}" / f"Snapshots_{run_index}.dat"
                 filename = str(filename)  # Convert Path object to string for compatibility
-                avg_mags.append(file_reader.return_avg_mag(filename, num_spins))
+                avg_para.append(file_reader.return_simple_ann(filename, num_spins, args.ymin, args.ymax))
 
-            abs_mags = np.abs(avg_mags)
-            magnetization[temp_index] = np.mean(abs_mags)
-            magnetization_std[temp_index] = np.std(abs_mags)
+            parameter[temp_index] = np.mean(avg_para)
+            parameter_std[temp_index] = np.std(avg_para)
 
-        magnetization_data.append(magnetization)
-        mangetization_std_data.append(magnetization_std)
+        parameter_data.append(parameter)
+        parameter_std_data.append(parameter_std)
 
     # Read temperatures using context manager
     temp_file = dir_path / "temp_index.txt"
@@ -150,7 +148,7 @@ def plot_fss_avgmag(args, base_dir):
         args.upper = len(temperatures) - 1
 
     ret, x, y, dy, x_true, y_true, dy_true = FSS.finite_size_scaling(
-        args.L, np.array(temperatures), np.array(magnetization_data), np.array(mangetization_std_data),
+        args.L, np.array(temperatures), np.array(parameter_data), np.array(parameter_std_data),
         args.lower, args.upper, args.t_c, args.nu, args.beta
     )
 
@@ -212,15 +210,14 @@ def plot_fss_avgmag(args, base_dir):
 
     # Save and show
     if args.ising_solver in ["lrim", "lb"]:
-        save_path = base_dir + f"/plots/test1/avg_magnetization/fss_{args.ising_solver}_si_{args.sigma_index}.pdf"
+        save_path = base_dir + f"/plots/test1/simple_ann/fss_{args.ising_solver}_si_{args.sigma_index}.pdf"
     else: 
-        save_path = base_dir + f"/plots/test1/avg_magnetization/fss_{args.ising_solver}.pdf"
+        save_path = base_dir + f"/plots/test1/simple_ann/fss_{args.ising_solver}.pdf"
 
     plt.tight_layout()
     plt.savefig(save_path, bbox_inches="tight")
     # plt.show()
     plt.close(fig)  # Close the figure to free memory
-
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -279,6 +276,20 @@ def parse_args():
         help="Index for sigma value (only for lrim solver)"
     )
     parser.add_argument(
+        "-ymin", "--ymin",
+        dest="ymin",
+        type=float,
+        required=True,
+        help="Minimum value for the y-axis range"
+    )
+    parser.add_argument(
+        "-ymax", "--ymax",
+        dest="ymax",
+        type=float,
+        required=True,
+        help="Maximum value for the y-axis range"
+    )
+    parser.add_argument(
         "-lower", "--lower-bound",
         dest="lower",
         type=int,
@@ -322,19 +333,12 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    if "wolff" in args.ising_solver: 
-        base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/IsingModelSolver/benchmarks/phase_detection/cluster"
-    elif "lrim" in args.ising_solver:
-        base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/IsingModelSolver/benchmarks/phase_detection/cluster"
-    else: 
-        base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/IsingModelSolver/benchmarks/phase_detection/metropolis"
+    base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/IsingModelSolver/benchmarks/phase_detection"
 
-    plot_avg_magnetization(args, base_dir)
+    # plot_simple_ann(args, base_dir)
 
-    # plot_fss_avgmag(args, base_dir)
+    plot_fss_simple_ann(args, base_dir)
 
-    print(f"Avg magnetization analysis of {args.ising_solver} completed successfully.")
-
-    
+    print(f"Simple ann analysis of {args.ising_solver} completed successfully.")
 
 

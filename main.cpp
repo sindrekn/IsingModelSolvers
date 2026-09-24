@@ -18,9 +18,13 @@ int main(int argc, char *argv[])
     CLI::App app{"Ising Model Solver"};
 
     std::string ising_solver; 
-    app.add_option("--ising_solver", ising_solver, "Ising solver to use (quadratic, wolff, quadratic_nnn, triangular, honeycomb, cubic, cubic_nnn, lrim, lb)")
+    app.add_option("--ising_solver", ising_solver, 
+        "Ising solver to use (quadratic, wolff_quadratic, quadratic_nnn, triangular, wolff_triangular, honeycomb, wolff_honeycomb, cubic, wolff_cubic, cubic_nnn, lrim, lb_lrim)")
         ->required()
-        ->check(CLI::IsMember({"quadratic", "wolff", "quadratic_nnn", "triangular", "honeycomb", "cubic", "cubic_nnn", "lrim", "lb"}));
+        ->check(CLI::IsMember({"quadratic", "wolff_quadratic", 
+            "quadratic_nnn", "triangular", "wolff_triangular", 
+            "honeycomb", "wolff_honeycomb", "cubic", "wolff_cubic", "cubic_nnn", 
+            "lrim", "lb_lrim"}));
 
     int L = 0; 
     app.add_option("--L", L, "Lattice size (LxL for 2D, LxLxL for 3D)")
@@ -68,35 +72,38 @@ int main(int argc, char *argv[])
 
     CLI11_PARSE(app, argc, argv);
 
-    if (ising_solver == "triangular" || ising_solver == "honeycomb") {
-        if (Lx > 0 && Ly > 0) {
-            std::cout << "Using specified Lx and Ly for lattice size: " << Lx << "x" << Ly << std::endl;
-        } else if (L > 0) {
-            std::cout << "Using specified L for lattice size: " << L << "x" << L << std::endl;
+    if (ising_solver == "triangular" || ising_solver == "honeycomb" 
+        || ising_solver == "wolff_triangular" || ising_solver == "wolff_honeycomb") {
+        if (L > 0) {
             Lx = Ly = L;
         } else {
-            std::cerr << "Error: For triangular and honeycomb lattices, either --L, or both --Lx and --Ly, must be specified and greater than 0." << std::endl;
+            std::cerr << "Error: For triangular and honeycomb lattices, either --L, or both --Lx and --Ly, must be specified and greater than 0." 
+            << std::endl;
             return 1;
         }
     } else {
         if (L <= 0) {
-            std::cerr << "Error: For other lattices, --L must be specified and greater than 0." << std::endl;
+            std::cerr << "Error: For other lattices, --L must be specified and greater than 0." 
+            << std::endl;
             return 1;
         }
     }
 
     if (t_min <= 0 || t_max <= 0 || t_min >= t_max) {
-        std::cerr << "Error: Invalid temperature range. Ensure that 0 < t_min < t_max." << std::endl;
+        std::cerr << "Error: Invalid temperature range. Ensure that 0 < t_min < t_max." 
+        << std::endl;
         return 1;
     }
 
     if (run_start < 0 || run_end < 0 || run_start > run_end) {
-        std::cerr << "Error: Invalid run indices. Ensure that 0 <= run_start <= run_end." << std::endl;
+        std::cerr << "Error: Invalid run indices. Ensure that 0 <= run_start <= run_end." 
+        << std::endl;
         return 1;
     }
 
     if (sigma < 0 || sigma_index < 0) {
-        std::cerr << "Error: Invalid sigma or sigma_index. Ensure that both are non-negative." << std::endl;
+        std::cerr << "Error: Invalid sigma or sigma_index. Ensure that both are non-negative." 
+        << std::endl;
         return 1;
     }
 
@@ -111,20 +118,43 @@ int main(int argc, char *argv[])
                 std::max(1u, std::thread::hardware_concurrency())));
     
     std::string base_dir; 
-    if (ising_solver == "lrim") {
+    std::string path = "/home/sindrekampennesheim/Documents/PhD/Optimizing/IsingModelSolver/benchmarks/phase_detection"; 
+
+    if (ising_solver == "quadratic") {
+        base_dir = path + "/metropolis/" + ising_solver + "/test1/L" + std::to_string(L);
+    } else if (ising_solver == "wolff_quadratic") {
+        base_dir = path + "/cluster/" + ising_solver + "/test1/L" + std::to_string(L);
+    } else if (ising_solver == "quadratic_nnn") {
+        base_dir = path + "/metropolis/" + ising_solver + "/test1/L" + std::to_string(L);
+    } else if (ising_solver == "triangular") {
+        base_dir = path + "/metropolis/" + ising_solver + "/test1/L" + std::to_string(L);
+    } else if (ising_solver == "wolff_triangular") {
+        base_dir = path + "/cluster/" + ising_solver + "/test1/L" + std::to_string(L);
+    } else if (ising_solver == "honeycomb") {
+        base_dir = path + "/metropolis/" + ising_solver + "/test1/L" + std::to_string(L);
+    } else if (ising_solver == "wolff_honeycomb") {
+        base_dir = path + "/cluster/" + ising_solver + "/test1/L" + std::to_string(L);
+    } else if (ising_solver == "cubic") {
+        base_dir = path + "/metropolis/" + ising_solver + "/test1/L" + std::to_string(L);
+    } else if (ising_solver == "wolff_cubic") {
+        base_dir = path + "/cluster/" + ising_solver + "/test1/L" + std::to_string(L);
+    } else if (ising_solver == "cubic_nnn") {
+        base_dir = path + "/metropolis/" + ising_solver + "/test1/L" + std::to_string(L);
+    } else if (ising_solver == "lrim") {
         base_dir = setup_sigma_directory(
-            "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/lrim/test1/L" + std::to_string(L), 
+            path + "/metropolis/" + ising_solver + "/test1/L" + std::to_string(L), 
             sigma, 
             sigma_index
         );
-    } else if (ising_solver == "lb") {
+    } else if (ising_solver == "lb_lrim") {
         base_dir = setup_sigma_directory(
-            "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/lb/test1/L" + std::to_string(L), 
+            path + "/cluster/" + ising_solver + "/test1/L" + std::to_string(L), 
             sigma, 
             sigma_index
         );
     } else {
-        base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/Output/IsingSolver/" + ising_solver + "/test1/L" + std::to_string(L);
+        std::cerr << "Error: Unknown Ising solver specified." << std::endl;
+        return 1;
     }
 
     // -- Test the path --
@@ -145,21 +175,28 @@ int main(int argc, char *argv[])
 
     if (ising_solver == "quadratic") {
         solver.quadratic_solver();
-    } else if (ising_solver == "wolff") {
-        solver.wolff_solver();
+    } else if (ising_solver == "wolff_quadratic") {
+        solver.wolff_quadratic_solver();
     } else if (ising_solver == "quadratic_nnn") {
         solver.quadratic_nnn_solver();
     } else if (ising_solver == "triangular") {
         solver.triangular_solver(Lx, Ly);
+    } else if (ising_solver == "wolff_triangular") {
+        solver.wolff_triangular_solver(Lx, Ly);
     } else if (ising_solver == "honeycomb") {
         solver.honeycomb_solver(Lx, Ly);
+    } else if (ising_solver == "wolff_honeycomb") {
+        solver.wolff_honeycomb_solver(Lx, Ly);
     } else if (ising_solver == "cubic") {
         solver.cubic_solver();
+    } else if (ising_solver == "wolff_cubic") {
+        // std::cout << "Something" << std::endl;
+        solver.wolff_cubic_solver();
     } else if (ising_solver == "cubic_nnn") {
         solver.cubic_nnn_solver();
     } else if (ising_solver == "lrim") {
         solver.lrim(sigma);
-    } else if (ising_solver == "lb") {
+    } else if (ising_solver == "lb_lrim") {
         solver.lb(sigma);
     } else {
         std::cerr << "Error: Unknown Ising solver specified." << std::endl;
