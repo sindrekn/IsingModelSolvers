@@ -7,7 +7,7 @@ import FSS
 from pathlib import Path
 
 
-def plot_avg_magnetization(args, base_dir):
+def plot_avg_magnetization(args, base_dir, plot_dir):
     """Plots the average magnetization with error bars for a given lattice size L,
 
     number of temperatures, and number of runs.
@@ -99,16 +99,16 @@ def plot_avg_magnetization(args, base_dir):
 
     # Save and show
     if args.ising_solver in ["lrim", "lb"]:
-        save_path = base_dir + f"/plots/test1/avg_magnetization/{args.ising_solver}_si_{args.sigma_index}.pdf"
+        save_path = plot_dir + f"/{args.ising_solver}_si_{args.sigma_index}.pdf"
     else: 
-        save_path = base_dir + f"/plots/test1/avg_magnetization/{args.ising_solver}.pdf"
+        save_path = plot_dir + f"/{args.ising_solver}.pdf"
 
     plt.tight_layout()
-    # plt.savefig(save_path, bbox_inches="tight")
-    plt.show()
+    plt.savefig(save_path, bbox_inches="tight")
+    # plt.show()
     plt.close(fig)  # Close the figure to free memory
 
-def plot_fss_avgmag(args, base_dir): 
+def plot_fss_avgmag(args, base_dir, plot_dir): 
     base_path = Path(base_dir)
     magnetization_data = []
     mangetization_std_data = []
@@ -212,9 +212,9 @@ def plot_fss_avgmag(args, base_dir):
 
     # Save and show
     if args.ising_solver in ["lrim", "lb"]:
-        save_path = base_dir + f"/plots/test1/avg_magnetization/fss_{args.ising_solver}_si_{args.sigma_index}.pdf"
+        save_path = plot_dir + f"/fss_{args.ising_solver}_si_{args.sigma_index}.pdf"
     else: 
-        save_path = base_dir + f"/plots/test1/avg_magnetization/fss_{args.ising_solver}.pdf"
+        save_path = plot_dir + f"/fss_{args.ising_solver}.pdf"
 
     plt.tight_layout()
     plt.savefig(save_path, bbox_inches="tight")
@@ -328,10 +328,11 @@ if __name__ == "__main__":
         base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/IsingModelSolver/benchmarks/phase_detection/cluster"
     else: 
         base_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/IsingModelSolver/benchmarks/phase_detection/metropolis"
+    plot_dir = "/home/sindrekampennesheim/Documents/PhD/Optimizing/IsingModelSolver/benchmarks/phase_detection/plots/test1/avg_magnetization"
 
-    plot_avg_magnetization(args, base_dir)
+    plot_avg_magnetization(args, base_dir, plot_dir)
 
-    # plot_fss_avgmag(args, base_dir)
+    plot_fss_avgmag(args, base_dir, plot_dir)
 
     print(f"Avg magnetization analysis of {args.ising_solver} completed successfully.")
 

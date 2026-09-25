@@ -581,7 +581,7 @@ void run_ising_solver::wolff_cubic_solver() {
                 for (int temp_index = 0; temp_index < p.temp_updates; temp_index++) {
                     StateWriter writer(temp_dirs[temp_index], run);
                     
-                    for (int sweep = 0; sweep < p.sweeps_per_temp; sweep++) {
+                    for (int sweep = 0; sweep < p.sweeps_per_temp_3d; sweep++) {
                         wolff_cluster(
                             num_neighbors,
                             neighbors.data(),

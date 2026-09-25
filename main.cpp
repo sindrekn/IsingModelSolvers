@@ -121,34 +121,34 @@ int main(int argc, char *argv[])
     std::string path = "/home/sindrekampennesheim/Documents/PhD/Optimizing/IsingModelSolver/benchmarks/phase_detection"; 
 
     if (ising_solver == "quadratic") {
-        base_dir = path + "/metropolis/" + ising_solver + "/test1/L" + std::to_string(L);
+        base_dir = path + "/metropolis/" + ising_solver + "/test2/L" + std::to_string(L);
     } else if (ising_solver == "wolff_quadratic") {
-        base_dir = path + "/cluster/" + ising_solver + "/test1/L" + std::to_string(L);
+        base_dir = path + "/cluster/" + ising_solver + "/test2/L" + std::to_string(L);
     } else if (ising_solver == "quadratic_nnn") {
-        base_dir = path + "/metropolis/" + ising_solver + "/test1/L" + std::to_string(L);
+        base_dir = path + "/metropolis/" + ising_solver + "/test2/L" + std::to_string(L);
     } else if (ising_solver == "triangular") {
-        base_dir = path + "/metropolis/" + ising_solver + "/test1/L" + std::to_string(L);
+        base_dir = path + "/metropolis/" + ising_solver + "/test2/L" + std::to_string(L);
     } else if (ising_solver == "wolff_triangular") {
-        base_dir = path + "/cluster/" + ising_solver + "/test1/L" + std::to_string(L);
+        base_dir = path + "/cluster/" + ising_solver + "/test2/L" + std::to_string(L);
     } else if (ising_solver == "honeycomb") {
-        base_dir = path + "/metropolis/" + ising_solver + "/test1/L" + std::to_string(L);
+        base_dir = path + "/metropolis/" + ising_solver + "/test2/L" + std::to_string(L);
     } else if (ising_solver == "wolff_honeycomb") {
-        base_dir = path + "/cluster/" + ising_solver + "/test1/L" + std::to_string(L);
+        base_dir = path + "/cluster/" + ising_solver + "/test2/L" + std::to_string(L);
     } else if (ising_solver == "cubic") {
-        base_dir = path + "/metropolis/" + ising_solver + "/test1/L" + std::to_string(L);
+        base_dir = path + "/metropolis/" + ising_solver + "/test2/L" + std::to_string(L);
     } else if (ising_solver == "wolff_cubic") {
-        base_dir = path + "/cluster/" + ising_solver + "/test1/L" + std::to_string(L);
+        base_dir = path + "/cluster/" + ising_solver + "/test2/L" + std::to_string(L);
     } else if (ising_solver == "cubic_nnn") {
-        base_dir = path + "/metropolis/" + ising_solver + "/test1/L" + std::to_string(L);
+        base_dir = path + "/metropolis/" + ising_solver + "/test2/L" + std::to_string(L);
     } else if (ising_solver == "lrim") {
         base_dir = setup_sigma_directory(
-            path + "/metropolis/" + ising_solver + "/test1/L" + std::to_string(L), 
+            path + "/metropolis/" + ising_solver + "/test2/L" + std::to_string(L), 
             sigma, 
             sigma_index
         );
     } else if (ising_solver == "lb_lrim") {
         base_dir = setup_sigma_directory(
-            path + "/cluster/" + ising_solver + "/test1/L" + std::to_string(L), 
+            path + "/cluster/" + ising_solver + "/test2/L" + std::to_string(L), 
             sigma, 
             sigma_index
         );
@@ -190,7 +190,6 @@ int main(int argc, char *argv[])
     } else if (ising_solver == "cubic") {
         solver.cubic_solver();
     } else if (ising_solver == "wolff_cubic") {
-        // std::cout << "Something" << std::endl;
         solver.wolff_cubic_solver();
     } else if (ising_solver == "cubic_nnn") {
         solver.cubic_nnn_solver();
