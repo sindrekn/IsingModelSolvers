@@ -6,6 +6,7 @@
 #include <string>
 #include <cmath>
 #include <optional>
+#include <numeric>
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -135,21 +136,21 @@ void print_lattice_snapshots(const std::string& filepath, int num_spins) {
     std::cout << "Total snapshots read: " << reader.snapshot_index() << "\n";
 }
 
-std::vector<double> return_avg_mag(const std::string& filepath, int num_spins) {
+std::vector<double> return_mag(const std::string& filepath, int num_spins) {
     SnapshotReader reader(filepath, num_spins);
-    std::vector<double> avg_mags;
+    std::vector<double> m;
 
     while (auto state = reader.next()) {
         auto spins = unpack_spins(*state, num_spins);
-        avg_mags.push_back(std::abs(average_magnetization(spins)));
+        m.push_back(average_magnetization(spins));
     }
-    return avg_mags;
+    return m;
 }
 
 std::vector<double> return_simple_ann(const std::string& filepath, int num_spins, double ymin, double ymax) {
     double v0 = -std::log(1 / ymin - 1);
     double a = -v0 - std::log(1 / ymax - 1);
-    std::vector<double> avg_mags = return_avg_mag(filepath, num_spins);
+    std::vector<double> avg_mags = return_mag(filepath, num_spins);
 
     for (auto& m : avg_mags) {
         m = sigmoid(a * m + v0);
@@ -157,22 +158,70 @@ std::vector<double> return_simple_ann(const std::string& filepath, int num_spins
     return avg_mags;
 }
 
-std::vector<double> return_region_mag(const std::string& filepath, int num_spins, int A, double ymin, double ymax) {
-    SnapshotReader reader(filepath, num_spins);
+std::vector<int64_t> build_regions(int64_t N, int64_t A)
+{
+    const int64_t num_regions = N / (A * A);
+    const int64_t L = static_cast<int64_t>(std::sqrt(static_cast<double>(N)));
+    const int64_t Asize = L / A;
+    const int64_t region_size = A * A;
+
+    // Precompute region indices: row-major, regions[a * region_size + i]
+    std::vector<int64_t> regions(num_regions * region_size, 0);
+
+    int64_t a = 0;
+    for (int64_t arow = 0; arow < Asize; ++arow) {
+        for (int64_t acol = 0; acol < Asize; ++acol) {
+            int64_t i = 0;
+            for (int64_t row = arow * A; row < (arow + 1) * A; ++row) {
+                for (int64_t col = acol * A; col < (acol + 1) * A; ++col) {
+                    regions[a * region_size + i] = row * L + col;
+                    ++i;
+                }
+            }
+            ++a;
+        }
+    }
+    return regions;
+}
+
+std::vector<double> return_regmag(
+    const std::string& filepath,
+    int num_spins,
+    int A,
+    double v0,
+    double w,
+    double b)
+{
     std::vector<double> y;
+    SnapshotReader reader(filepath, num_spins);
+
+    const int region_size = A * A;
+    const int num_regions = num_spins / region_size;
+    const std::vector<int64_t> regions = build_regions(num_spins, A);
 
     while (auto state = reader.next()) {
         auto spins = unpack_spins(*state, num_spins);
-        // TODO: region-restricted magnetization using region size A and
-        // ymin/ymax rescaling (unimplemented in the original as well).
-        (void)A; (void)ymin; (void)ymax; (void)spins;
+
+        double psi_sum = 0.0;
+        for (int a = 0; a < num_regions; ++a) {
+            const int64_t* idx = &regions[static_cast<size_t>(a) * region_size];
+            int s = 0;
+            for (int i = 0; i < region_size; ++i)
+                s += spins[idx[i]];
+
+            const double m = static_cast<double>(s) / region_size;
+            psi_sum += ReLu(std::abs(m) + b);
+        }
+
+        y.push_back(sigmoid(w * psi_sum + v0));
     }
     return y;
 }
 
 PYBIND11_MODULE(file_reader, m) {
     m.doc() = "pybind11 file reader plugin for reading lattice snapshots";
-    m.def("return_avg_mag", &return_avg_mag, "A function that returns the average magnetization for each snapshot");
+    m.def("return_mag", &return_mag, "A function that returns the magnetization for each snapshot");
     m.def("return_simple_ann", &return_simple_ann, "A function that returns the simple average magnetization based ann for each snapshot");
+    m.def("return_regmag", &return_regmag, "A function that returns the region magnetization for each snapshot");
     m.def("print_lattice_snapshots", &print_lattice_snapshots, "A function that prints the lattice snapshots and their average magnetization");
 }

@@ -667,11 +667,11 @@ def finite_size_scaling(l_list, rho, order_parameters, order_parameters_std, low
         order_parameters_std = 0.01 * np.abs(order_parameters)  # Assume 1% std deviation if all zeros
 
     # Do finite size scaling
-    ret = autoscale(l_list, rho, order_parameters, order_parameters_std, rho_c, nu, beta)
+    ret = autoscale(l_list, rho, order_parameters, order_parameters_std, rho_c, nu, -beta)
     x, y, dy = scaledata(l_list, rho, order_parameters, order_parameters_std, ret['rho'], ret['nu'], ret['zeta'])
 
     # True parameters for comparison
-    x_true, y_true, dy_true = scaledata(l_list, rho, order_parameters, order_parameters_std, rho_c, nu, beta)
+    x_true, y_true, dy_true = scaledata(l_list, rho, order_parameters, order_parameters_std, rho_c, nu, -beta)
 
     return ret, x, y, dy, x_true, y_true, dy_true
 
