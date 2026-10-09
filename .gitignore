@@ -13,3 +13,4 @@ backend/runnerv2.hpp
 analysis/file_reader.cpp
 analysis/lattize_analytics.py
 analysis/lattize_analytics
+TestSweepSpeed.cpp
