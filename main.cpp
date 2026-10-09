@@ -118,43 +118,16 @@ int main(int argc, char *argv[])
                 std::max(1u, std::thread::hardware_concurrency())));
     
     std::string base_dir; 
-    std::string path = "/home/sindrekampennesheim/Documents/PhD/Optimizing/IsingModelSolver/benchmarks/phase_detection"; 
+    std::string path = "/cluster/projects/nn2700k/sind/IsingModelSolver/output/"; 
 
-    if (ising_solver == "quadratic") {
-        base_dir = path + "/metropolis/" + ising_solver + "/test2/L" + std::to_string(L);
-    } else if (ising_solver == "wolff_quadratic") {
-        base_dir = path + "/cluster/" + ising_solver + "/test2/L" + std::to_string(L);
-    } else if (ising_solver == "quadratic_nnn") {
-        base_dir = path + "/metropolis/" + ising_solver + "/test2/L" + std::to_string(L);
-    } else if (ising_solver == "triangular") {
-        base_dir = path + "/metropolis/" + ising_solver + "/test2/L" + std::to_string(L);
-    } else if (ising_solver == "wolff_triangular") {
-        base_dir = path + "/cluster/" + ising_solver + "/test2/L" + std::to_string(L);
-    } else if (ising_solver == "honeycomb") {
-        base_dir = path + "/metropolis/" + ising_solver + "/test2/L" + std::to_string(L);
-    } else if (ising_solver == "wolff_honeycomb") {
-        base_dir = path + "/cluster/" + ising_solver + "/test2/L" + std::to_string(L);
-    } else if (ising_solver == "cubic") {
-        base_dir = path + "/metropolis/" + ising_solver + "/test2/L" + std::to_string(L);
-    } else if (ising_solver == "wolff_cubic") {
-        base_dir = path + "/cluster/" + ising_solver + "/test2/L" + std::to_string(L);
-    } else if (ising_solver == "cubic_nnn") {
-        base_dir = path + "/metropolis/" + ising_solver + "/test2/L" + std::to_string(L);
-    } else if (ising_solver == "lrim") {
+    if (ising_solver == "lb_lrim") {
         base_dir = setup_sigma_directory(
-            path + "/metropolis/" + ising_solver + "/test2/L" + std::to_string(L), 
-            sigma, 
-            sigma_index
-        );
-    } else if (ising_solver == "lb_lrim") {
-        base_dir = setup_sigma_directory(
-            path + "/cluster/" + ising_solver + "/test2/L" + std::to_string(L), 
+            path + ising_solver + "/L" + std::to_string(L), 
             sigma, 
             sigma_index
         );
     } else {
-        std::cerr << "Error: Unknown Ising solver specified." << std::endl;
-        return 1;
+        base_dir = path + ising_solver + "/L" + std::to_string(L);
     }
 
     // -- Test the path --
@@ -211,5 +184,4 @@ int main(int argc, char *argv[])
 
     return 0;
 }
-
 

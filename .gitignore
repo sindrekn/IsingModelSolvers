@@ -7,3 +7,9 @@ analysis/__pycache__/
 # Ignore compiled files
 analysis/file_reader.cpython-312-x86_64-linux-gnu.so
 run_ising_solvers.sh
+mainV0.cpp
+backend/runnerv2.cpp
+backend/runnerv2.hpp
+analysis/file_reader.cpp
+analysis/lattize_analytics.py
+analysis/lattize_analytics
