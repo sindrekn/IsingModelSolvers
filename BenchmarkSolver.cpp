@@ -258,6 +258,7 @@ int main(int argc, char *argv[])
 
     std::string lattice_type;
     app.add_option("--lattice_type", lattice_type, "Lattice type to use (quadratic, triangular, honeycomb, cubic)")
+        ->required()
         ->check(CLI::IsMember({"quadratic", "triangular", "honeycomb", "cubic"}));
 
     int L = 0; 
@@ -272,7 +273,7 @@ int main(int argc, char *argv[])
     app.add_option("--Ly", Ly, "Lattice size in y-direction (for triangular and honeycomb lattices)")
         ->check(CLI::PositiveNumber);
 
-    double sigma;
+    double sigma = 0.0;
     app.add_option("--sigma", sigma, "Sigma for FullyConnected solver")
         ->check(CLI::PositiveNumber);
 
@@ -353,13 +354,23 @@ int main(int argc, char *argv[])
     }
 
     // One row per benchmark run
-    outfile << ising_solver << ","
-            << lattice_type << ","
-            << L << "x" << L << ","
-            << temp << ","
-            << num_sweeps << ","
-            << sigma << ","
-            << avg_time << "\n";
+    if (is_3d) {
+        outfile << ising_solver << ","
+                << lattice_type << ","
+                << L << "x" << L << "x" << L << ","
+                << temp << ","
+                << num_sweeps << ","
+                << sigma << ","
+                << avg_time << "\n";
+    } else {
+        outfile << ising_solver << ","
+                << lattice_type << ","
+                << Lx << "x" << Ly << ","
+                << temp << ","
+                << num_sweeps << ","
+                << sigma << ","
+                << avg_time << "\n";
+    }
 
     std::cout << "\n-------------------------------\n";
 
