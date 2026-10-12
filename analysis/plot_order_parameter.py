@@ -6,144 +6,48 @@ import file_reader
 import FSS
 import pandas as pd
 
+def block_jackknife(x, stat, num_bins=20):
+    """x: (n_samples, n_T). stat: function of moment dict -> (n_T,) array."""
+    n = (x.shape[0] // num_bins) * num_bins
+    b = n // num_bins
+    x = np.abs(x[:n])
+    S = {k: (x**k).reshape(num_bins, b, -1).sum(axis=1) for k in (1, 2, 4)}
+    full = {k: S[k].sum(axis=0) / n for k in S}
+    loo  = {k: (S[k].sum(axis=0) - S[k]) / (n - b) for k in S}
+    theta, theta_i = stat(full), stat(loo)
+    err = np.sqrt((num_bins - 1) * np.var(theta_i, axis=0, ddof=0))
+    return theta, err
+
+def read_temperatures(temp_file):
+    temps = []
+    with open(temp_file, "r") as f:
+        next(f)  # Skip header
+        for line in f:
+            parts = line.strip().split()
+            if len(parts) > 1:
+                temps.append(float(parts[1]))
+    return np.array(temps)
+
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
 def simple_ann(args, df): 
     return sigmoid(args.a * np.abs(df.values) + args.bias)
 
-def mag_suceptibility(input_array, num_spins, temp_file):
-    temperatures = []
-    with open(temp_file, "r") as f:
-        next(f)  # Skip header
-        for line in f:
-            parts = line.strip().split()
-            if len(parts) > 1:
-                temperatures.append(float(parts[1]))
+def plot_metric(args, parameter_data, parameter_error, temps, plot_dir):
 
-    avg_mag = np.mean(np.abs(input_array), axis=0)
-    avg_mag_sq = np.mean(input_array**2, axis=0)
-    susceptibility = (avg_mag_sq - avg_mag**2) * num_spins / np.array(temperatures)
-
-    return susceptibility
-
-def binder_cumulant(input_array):
-    avg_mag_quad = np.mean(input_array**4, axis=0)
-    avg_mag_sq = np.mean(input_array**2, axis=0)
-    binder = 1 - avg_mag_quad / (3 * avg_mag_sq**2)
-
-    return binder
-
-def mag_susceptibility_with_error(input_array, num_spins, temp_file, num_bins=20):
-    """
-    Computes magnetic susceptibility and its uncertainty using Jackknife binning.
-    
-    input_array: 2D numpy array of shape (num_snapshots, num_temperatures)
-    """
-    # Load temperatures
-    temperatures = []
-    with open(temp_file, "r") as f:
-        next(f)  # Skip header
-        for line in f:
-            parts = line.strip().split()
-            if len(parts) > 1:
-                temperatures.append(float(parts[1]))
-    
-    temps = np.array(temperatures)
-    n_samples = input_array.shape[0]
-    
-    avg_mag = np.mean(np.abs(input_array), axis=0)
-    avg_mag_sq = np.mean(input_array**2, axis=0)
-    susceptibility = (avg_mag_sq - avg_mag**2) * num_spins / temps
-    
-    bin_size = n_samples // num_bins
-    jackknife_chi = np.zeros((num_bins, input_array.shape[1]))
-    
-    for i in range(num_bins):
-        mask = np.ones(n_samples, dtype=bool)
-        mask[i * bin_size : (i + 1) * bin_size] = False
-        
-        m_subset = input_array[mask]
-        
-        m_avg_sub = np.mean(np.abs(m_subset), axis=0)
-        m_sq_avg_sub = np.mean(m_subset**2, axis=0)
-        
-        jackknife_chi[i] = (m_sq_avg_sub - m_avg_sub**2) * num_spins / temps
-        
-    chi_error = np.sqrt((num_bins - 1) * np.var(jackknife_chi, axis=0, ddof=0))
-
-    return susceptibility, chi_error
-
-def binder_cumulant_with_error(input_array, num_bins=20):
-    """
-    Computes the Binder cumulant and its uncertainty using Jackknife binning.
-    
-    input_array: 2D numpy array of shape (num_snapshots, num_temperatures)
-    num_bins: Number of Jackknife blocks (default: 20)
-    """
-    n_samples = input_array.shape[0]
-    
-    # 1. Full dataset estimation
-    avg_mag_quad = np.mean(input_array**4, axis=0)
-    avg_mag_sq = np.mean(input_array**2, axis=0)
-    binder = 1.0 - avg_mag_quad / (3.0 * (avg_mag_sq**2))
-    
-    # 2. Jackknife Resampling
-    bin_size = n_samples // num_bins
-    jackknife_binder = np.zeros((num_bins, input_array.shape[1]))
-    
-    for i in range(num_bins):
-        # Leave out the i-th block
-        mask = np.ones(n_samples, dtype=bool)
-        mask[i * bin_size : (i + 1) * bin_size] = False
-        
-        m_subset = input_array[mask]
-        
-        m4_sub = np.mean(m_subset**4, axis=0)
-        m2_sub = np.mean(m_subset**2, axis=0)
-        
-        jackknife_binder[i] = 1.0 - m4_sub / (3.0 * (m2_sub**2))
-        
-    # 3. Calculate Jackknife standard error
-    binder_error = np.sqrt((num_bins - 1) * np.var(jackknife_binder, axis=0, ddof=0))
-
-    return binder, binder_error
-
-def plot_metric(args, parameter_data, parameter_std_data, temp_file, plot_dir):
-
-    plt.style.use("seaborn-b_8-whitegrid" if "seaborn-b_8-whitegrid" in plt.style.available else "default")
+    plt.style.use("seaborn-v0_8-whitegrid" if "seaborn-v0_8-whitegrid" in plt.style.available else "default")
     fig, ax = plt.subplots(figsize=(7, 5), dpi=300)
 
+    colors = cm.viridis(np.linspace(0, 0.9, len(args.L)))
+
     for i, L in enumerate(args.L):
-        # Read temperatures using context manager
-        temperatures = []
-        with open(temp_file, "r") as f:
-            next(f)  # Skip header
-            for line in f:
-                parts = line.strip().split()
-                if len(parts) > 1:
-                    temperatures.append(float(parts[1]))
-
-        # Enhanced plotting styling
-        line = ax.plot(
-            temperatures,
-            parameter_data[i],
-            marker="o",
-            markersize=5,
-            linewidth=1.8,
-            linestyle="-",
-            label=f"$L = {L}$",
-        )
-        color = line[0].get_color()
-
-        # Error shading matching the line color
-        ax.fill_between(
-            temperatures,
-            parameter_data[i] - parameter_std_data[i],
-            parameter_data[i] + parameter_std_data[i],
-            color=color,
-            alpha=0.18,
-            linewidth=0,
+        ax.errorbar(
+            temps, parameter_data[i], yerr=parameter_error[i],
+            linestyle="-", marker="o", markersize=3,
+            markerfacecolor="white", markeredgecolor=colors[i], markeredgewidth=1.2,
+            lw=1.4, color=colors[i], label=f"$L = {L}$",
+            capsize=3, capthick=1.2, elinewidth=1.2, zorder=3,
         )
 
     # Plot Critical Temperature line
@@ -155,6 +59,7 @@ def plot_metric(args, parameter_data, parameter_std_data, temp_file, plot_dir):
             linewidth=1.5,
             alpha=0.85,
             label=f"$T_c = {args.t_c}$",
+            zorder=1,
         )
 
     # Labels and Aesthetics
@@ -167,41 +72,27 @@ def plot_metric(args, parameter_data, parameter_std_data, temp_file, plot_dir):
         weight="semibold",
     )
 
-    # Fine-tune limits and grid
-    # ax.set_ylim(-0.02, 1.02)
     ax.grid(True, linestyle=":", alpha=0.6)
     ax.tick_params(axis="both", which="major", labelsize=10)
-    ax.legend(frameon=True, framealpha=0.9, facecolor="white", edgecolor="none", fontsize=10)
+    ax.legend(frameon=False, fontsize=10)
 
     # Save and show
-    if "lrim" in args.ising_solver:
+    if "lrim" in args.ising_solver or "lb" in args.ising_solver:
         save_path = plot_dir + f"/{args.ising_solver}_si_{args.sigma_index}.pdf"
-    elif "lb" in args.ising_solver:
-        save_path = plot_dir + f"/{args.ising_solver}_si_{args.sigma_index}.pdf"
-    else: 
+    else:
         save_path = plot_dir + f"/{args.ising_solver}.pdf"
 
     plt.tight_layout()
     # plt.savefig(save_path, bbox_inches="tight")
     plt.show()
-    plt.close(fig)  # Close the figure to free memory
+    plt.close(fig)
 
-def plot_fss_order_parameter(args, parameter_data, parameter_std_data, temp_file, plot_dir): 
-    
-    # Read temperatures using context manager
-    temperatures = []
-    with open(temp_file, "r") as f:
-        next(f)  # Skip header
-        for line in f:
-            parts = line.strip().split()
-            if len(parts) > 1:
-                temperatures.append(float(parts[1]))
-
+def plot_fss_order_parameter(args, parameter_data, parameter_error, temps, plot_dir): 
     if args.upper == 0: 
-        args.upper = len(temperatures) - 1
+        args.upper = len(temps) - 1
 
     ret, x, y, dy, x_true, y_true, dy_true = FSS.finite_size_scaling(
-        args.L, np.array(temperatures), np.array(parameter_data), np.array(parameter_std_data),
+        args.L, np.array(temps), np.array(parameter_data), np.array(parameter_error),
         args.lower, args.upper, args.t_c, args.nu, args.beta
     )
 
@@ -224,16 +115,14 @@ def plot_fss_order_parameter(args, parameter_data, parameter_std_data, temp_file
             order = np.argsort(xi)
             xi, yi, dyi = xi[order], yi[order], dyi[order]
 
-            ax.plot(
-                xi, yi,
+            ax.errorbar(
+                xi, yi, yerr=dyi,
                 linestyle="-", marker="o", markersize=3,
                 markerfacecolor="white", markeredgecolor=colors[i], markeredgewidth=1.2,
-                lw=1.4, color=colors[i], label=f"L = {L}", zorder=3
+                lw=1.4, color=colors[i], label=f"L = {L}",
+                capsize=3, capthick=1.2, elinewidth=1.2, zorder=3,
             )
-            ax.fill_between(
-                xi, yi - dyi, yi + dyi,
-                color=colors[i], alpha=0.25, linewidth=0, zorder=2
-            )
+
         ax.set_xlabel(r"$(T - T_c)\, L^{1/\nu}$")
         ax.set_ylabel(r"$O(T, L) \, L^{\beta/\nu}$")
         ax.set_title(title)
@@ -311,7 +200,7 @@ def parse_args():
         "-tc", "--critical-temperature",
         dest="t_c",
         type=float,
-        default=0.0,
+        default=2.27,
         required=False,
         help="Critical temperature for the Ising model"
     )
@@ -378,6 +267,14 @@ def parse_args():
         required=False,
         help="If True, plot the true scaling function and the finite-size scaling collapse"
     )
+    parser.add_argument(
+        "-bins", "--num-bins",
+        dest="bins",
+        type=int,
+        default=20,
+        required=False,
+        help="Number of bins for Jackknife resampling"
+    )
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -398,12 +295,14 @@ if __name__ == "__main__":
         num_spins_list = [L**2 for L in args.L]
 
     parameter_data = []
-    parameter_std_data = []
+    parameter_errors = []
 
     if args.order_parameter == "simple_ann":
         target_observable = "magnetization"
     else: 
         target_observable = args.order_parameter
+
+    temps = read_temperatures(temp_file)   # read once, not per L
 
     for i, L in enumerate(args.L):
 
@@ -421,18 +320,19 @@ if __name__ == "__main__":
             input_array = df.abs().to_numpy()
 
         if args.metric == "susceptibility":
-            parameter, parameter_std = mag_susceptibility_with_error(input_array, num_spins_list[i], temp_file)
+            stat = lambda M: (M[2] - M[1]**2) * num_spins_list[i] / temps
         elif args.metric == "binder":
-            parameter, parameter_std = binder_cumulant_with_error(input_array)
-        else: 
-            parameter = input_array.mean(axis=0)
-            parameter_std = input_array.std(axis=0)
+            stat = lambda M: 1.0 - M[4] / (3.0 * M[2]**2)
+        else:
+            stat = lambda M: M[1]
+
+        parameter, parameter_error = block_jackknife(input_array, stat, num_bins=args.bins)
 
         parameter_data.append(parameter)
-        parameter_std_data.append(parameter_std)
+        parameter_errors.append(parameter_error)
 
-    plot_metric(args, parameter_data, parameter_std_data, temp_file, plot_dir)
+    plot_metric(args, parameter_data, parameter_errors, temps, plot_dir)
 
-    # plot_fss_order_parameter(args, parameter_data, parameter_std_data, temp_file, plot_dir)
+    plot_fss_order_parameter(args, parameter_data, parameter_errors, temps, plot_dir)
 
 
