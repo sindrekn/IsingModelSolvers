@@ -30,14 +30,6 @@ int main(int argc, char *argv[])
     app.add_option("--L", L, "Lattice size (LxL for 2D, LxLxL for 3D)")
         ->check(CLI::PositiveNumber);
 
-    int Lx = 0; 
-    app.add_option("--Lx", Lx, "Lattice size in x-direction (for triangular and honeycomb lattices)")
-        ->check(CLI::PositiveNumber);
-    
-    int Ly = 0; 
-    app.add_option("--Ly", Ly, "Lattice size in y-direction (for triangular and honeycomb lattices)")
-        ->check(CLI::PositiveNumber);
-
     double t_c;
     app.add_option("--t_c", t_c, "Critical temperature for the Ising model")
         ->required()
@@ -58,36 +50,19 @@ int main(int argc, char *argv[])
         ->check(CLI::NonNegativeNumber);
 
     int run_end; 
-    app.add_option("--run_end", run_end, "Ending run index")
+    app.add_option("--run_end", run_end, "Ending run index (run_end - run_start = number of runs)")
         ->required()
         ->check(CLI::NonNegativeNumber);
 
     double sigma = 0.0;
     app.add_option("--sigma", sigma, "Sigma value for long-range interactions (only for lrim solver)")
         ->check(CLI::PositiveNumber);
-    
-    int sigma_index = 0;
-    app.add_option("--sigma_index", sigma_index, "Index for sigma value (only for lrim solver)")
-        ->check(CLI::NonNegativeNumber);
+
+    std::string base_dir;
+    app.add_option("--base_dir", base_dir, "Base directory for storing simulation results")
+        ->check(CLI::ExistingDirectory);
 
     CLI11_PARSE(app, argc, argv);
-
-    if (ising_solver == "triangular" || ising_solver == "honeycomb" 
-        || ising_solver == "wolff_triangular" || ising_solver == "wolff_honeycomb") {
-        if (L > 0) {
-            Lx = Ly = L;
-        } else {
-            std::cerr << "Error: For triangular and honeycomb lattices, either --L, or both --Lx and --Ly, must be specified and greater than 0." 
-            << std::endl;
-            return 1;
-        }
-    } else {
-        if (L <= 0) {
-            std::cerr << "Error: For other lattices, --L must be specified and greater than 0." 
-            << std::endl;
-            return 1;
-        }
-    }
 
     if (t_min <= 0 || t_max <= 0 || t_min >= t_max) {
         std::cerr << "Error: Invalid temperature range. Ensure that 0 < t_min < t_max." 
@@ -101,8 +76,8 @@ int main(int argc, char *argv[])
         return 1;
     }
 
-    if (sigma < 0 || sigma_index < 0) {
-        std::cerr << "Error: Invalid sigma or sigma_index. Ensure that both are non-negative." 
+    if (sigma < 0) {
+        std::cerr << "Error: Invalid sigma. Ensure that it is non-negative." 
         << std::endl;
         return 1;
     }
@@ -116,31 +91,14 @@ int main(int argc, char *argv[])
     int num_threads = static_cast<int>(
         std::min(static_cast<unsigned>(run_end - run_start),
                 std::max(1u, std::thread::hardware_concurrency())));
-    
-    std::string base_dir; 
-    std::string path = "/cluster/projects/nn2700k/sind/IsingModelSolver/output/"; 
-
-    if (ising_solver == "lb_lrim") {
-        base_dir = setup_sigma_directory(
-            path + ising_solver + "/L" + std::to_string(L), 
-            sigma, 
-            sigma_index
-        );
-    } else {
-        base_dir = path + ising_solver + "/L" + std::to_string(L);
-    }
-
-    // -- Test the path --
-    if (!std::filesystem::exists(base_dir)) {
-        std::cerr << "Error: Base directory does not exist: " << base_dir << std::endl;
-        return 1;
-    }
 
     // --- Prepare storage for all runs ---
     std::vector<std::string> temp_dirs = setup_temperature_directories(temp_schedule, base_dir, run_start, run_end);
 
     std::cout << "\n-------------------------------\n";
     std::cout << "Total number of runs: " << (run_end - run_start) << std::endl;
+    std::cout << "Number of temperature steps: " << p.temp_updates << std::endl;
+    std::cout << "Number of threads: " << num_threads << std::endl;
 
     run_ising_solver solver(L, num_threads, run_start, run_end, temp_schedule, temp_dirs);
 
@@ -153,13 +111,13 @@ int main(int argc, char *argv[])
     } else if (ising_solver == "quadratic_nnn") {
         solver.quadratic_nnn_solver();
     } else if (ising_solver == "triangular") {
-        solver.triangular_solver(Lx, Ly);
+        solver.triangular_solver(L, L);
     } else if (ising_solver == "wolff_triangular") {
-        solver.wolff_triangular_solver(Lx, Ly);
+        solver.wolff_triangular_solver(L, L);
     } else if (ising_solver == "honeycomb") {
-        solver.honeycomb_solver(Lx, Ly);
+        solver.honeycomb_solver(L, L);
     } else if (ising_solver == "wolff_honeycomb") {
-        solver.wolff_honeycomb_solver(Lx, Ly);
+        solver.wolff_honeycomb_solver(L, L);
     } else if (ising_solver == "cubic") {
         solver.cubic_solver();
     } else if (ising_solver == "wolff_cubic") {
