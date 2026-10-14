@@ -217,17 +217,16 @@ std::vector<double> return_regmag(
 
 struct Args {
     std::string order_parameter;
-    std::vector<int> L;
-    std::string ising_solver;
+    int N;
+    int L;
     int num_temps = 0;
     int num_runs = 0;
-    std::string sigma_index;
-    std::vector<int> A;
+    int A;
     double v0 = 0.0;
     double w = 1.0;
     double b = 0.0;
-    std::string base_root =
-        "/home/sindrekampennesheim/Documents/PhD/Optimizing/IsingModelSolver/benchmarks/phase_detection";
+    std::string dir_path;
+    std::string save_path;
 };
 
 // Writes columns temp_0..temp_{n-1}, rows snapshot_0..snapshot_{m-1},
@@ -299,7 +298,7 @@ void save_regmag(const Args& args, const std::string& dir_path,
 
 static void print_usage(const char* prog) {
     std::cerr
-        << "Usage: " << prog << " -op <magnetization|regmag> -L <sizes...> -I <solver> -t <num_temps> -r <num_runs>\n"
+        << "Usage: " << prog << " -op <magnetization|regmag> -N <sizes...> -I <solver> -t <num_temps> -r <num_runs>\n"
         << "         [-si <sigma_index>] [-A <region sizes...>] [-v0 <x>] [-w <x>] [-b <x>] [--base-root <dir>]\n";
 }
 
@@ -321,23 +320,23 @@ Args parse_args(int argc, char** argv) {
         return v;
     };
 
-    bool have_op = false, have_L = false, have_I = false, have_t = false, have_r = false;
+    bool have_op = false, have_N = false, have_L = false, have_t = false, have_r = false;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "-op" || a == "--order-parameter") { args.order_parameter = need_value(i); have_op = true; }
-        else if (a == "-L" || a == "--lattice-sizes") { args.L = int_list(i); have_L = true; }
-        else if (a == "-I" || a == "--ising-solver") { args.ising_solver = need_value(i); have_I = true; }
+        else if (a == "-L" || a == "--lattice-size") { args.L = std::stoi(need_value(i)); have_L = true; }
+        else if (a == "-N" || a == "--num-spins") { args.N = std::stoi(need_value(i)); have_N = true; }
         else if (a == "-t" || a == "--num-temps") { args.num_temps = std::stoi(need_value(i)); have_t = true; }
         else if (a == "-r" || a == "--num-runs") { args.num_runs = std::stoi(need_value(i)); have_r = true; }
-        else if (a == "-si" || a == "--sigma-index") { args.sigma_index = need_value(i); }
-        else if (a == "-A" || a == "--A") { args.A = int_list(i); }
+        else if (a == "-A" || a == "--A") { args.A = std::stoi(need_value(i)); }
         else if (a == "-v0" || a == "--v0") { args.v0 = std::stod(need_value(i)); }
         else if (a == "-w" || a == "--w") { args.w = std::stod(need_value(i)); }
         else if (a == "-b" || a == "--b") { args.b = std::stod(need_value(i)); }
-        else if (a == "--base-root") { args.base_root = need_value(i); }
+        else if (a == "--dir-path") { args.dir_path = need_value(i); }
+        else if (a == "--save-path") { args.save_path = need_value(i); }
         else throw std::invalid_argument("Unknown argument: " + a);
     }
-    if (!(have_op && have_L && have_I && have_t && have_r)) {
+    if (!(have_op && have_N && have_L && have_t && have_r)) {
         throw std::invalid_argument("Missing required argument(s)");
     }
     return args;
@@ -356,43 +355,24 @@ int main(int argc, char** argv) {
         print_usage(argv[0]);
         return 2;
     }
+    
 
     try {
-        const std::string base_dir =
-            (contains(args.ising_solver, "wolff") || contains(args.ising_solver, "lrim"))
-                ? args.base_root + "/cluster"
-                : args.base_root + "/metropolis";
-
-        const bool cubic = contains(args.ising_solver, "cubic");
-        const bool use_sigma = contains(args.ising_solver, "lrim") || contains(args.ising_solver, "lb");
         const bool is_regmag = args.order_parameter == "regmag";
-
+        if (is_regmag && args.A <= 0) {
+                throw std::invalid_argument("regmag needs A > 0, but got A=" + std::to_string(args.A));
+        }
+        
         if (!is_regmag && args.order_parameter != "magnetization") {
             throw std::invalid_argument("Unknown order parameter: " + args.order_parameter);
         }
-        if (is_regmag && args.A.size() < args.L.size()) {
-            throw std::invalid_argument("regmag needs one -A value per lattice size");
-        }
 
-        for (size_t k = 0; k < args.L.size(); ++k) {
-            const int L = args.L[k];
-            const int num_spins = cubic ? L * L * L : L * L;
+        if (is_regmag) save_regmag(args, args.dir_path, args.save_path, args.N, args.A);
+        else           save_magnetization(args, args.dir_path, args.save_path, args.N);
 
-            std::string dir_path = base_dir + "/" + args.ising_solver + "/test2/L" + std::to_string(L);
-            std::string save_path = args.base_root + "/observables/test2/" + args.order_parameter +
-                                    "_" + args.ising_solver + "_L" + std::to_string(L);
-            if (use_sigma) {
-                dir_path += "/sigma_" + args.sigma_index;
-                save_path += "_sigma_" + args.sigma_index;
-            }
-            save_path += ".csv";
-
-            if (is_regmag) save_regmag(args, dir_path, save_path, num_spins, args.A[k]);
-            else           save_magnetization(args, dir_path, save_path, num_spins);
-
-            std::cout << "Saved average " << args.order_parameter << " data for L=" << L
-                      << " to " << save_path << "\n";
-        }
+        std::cout << "Saved average " << args.order_parameter
+                    << " to " << args.save_path << "\n";
+    
     } catch (const std::exception& e) {
         std::cerr << "Error: " << e.what() << "\n";
         return 1;

@@ -168,6 +168,28 @@ def parse_args():
         description="Plot average magnetization vs temperature for a given lattice size and solver."
     )
     parser.add_argument(
+        "-f", "--file-path",
+        dest="file_path",
+        type=str,
+        nargs='+',
+        required=True,
+        help="Path to the CSV file(s) containing the data for each lattice size"
+    )
+    parser.add_argument(
+        "-t", "--temp-file",
+        dest="temp_file",
+        type=str,
+        required=True,
+        help="Path to the CSV file containing the temperature data"
+    )
+    parser.add_argument(
+        "-p", "--plot-dir",
+        dest="plot_dir",
+        type=str,
+        default="plot",
+        help="Directory to save the plots"
+    )
+    parser.add_argument(
         "-L", "--lattice-sizes",
         dest="L",
         type=int,
@@ -176,11 +198,12 @@ def parse_args():
         help="Size of the lattices (e.g., 8 16 32 48)"
     )
     parser.add_argument(
-        "-I", "--ising-solver",
-        dest="ising_solver",
-        type=str,
+        "-N", "--num-spins",
+        dest="N",
+        type=int,
+        nargs='+',
         required=True,
-        help="Name of the Ising solver (used to build the output directory path)"
+        help="Number of spins in each lattice (e.g., 64 256 1024 2304)"
     )
     parser.add_argument(
         "-op", "--order-parameter",
@@ -203,13 +226,6 @@ def parse_args():
         default=2.27,
         required=False,
         help="Critical temperature for the Ising model"
-    )
-    parser.add_argument(
-        "-si", "--sigma-index",
-        dest="sigma_index",
-        type=str,
-        required=False,
-        help="Index for sigma value (only for lrim solver)"
     )
     parser.add_argument(
         "-a", "--a",
@@ -279,39 +295,15 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    dir_path = "/home/sindrekampennesheim/Documents/PhD/Optimizing/IsingModelSolver/benchmarks/phase_detection/"
-    plot_dir = dir_path + f"plots/test2/{args.order_parameter}"
-
-    if "wolff" in args.ising_solver: 
-        temp_file = dir_path + f"cluster/{args.ising_solver}/test2/L{args.L[0]}/temp_index.txt"
-    elif "lb" in args.ising_solver: 
-        temp_file = dir_path + f"cluster/{args.ising_solver}/test2/L{args.L[0]}/temp_index.txt"
-    else: 
-        temp_file = dir_path + f"metropolis/{args.ising_solver}/test2/L{args.L[0]}/temp_index.txt"
-
-    if "cubic" in args.ising_solver:
-        num_spins_list = [L**3 for L in args.L]
-    else:
-        num_spins_list = [L**2 for L in args.L]
 
     parameter_data = []
     parameter_errors = []
 
-    if args.order_parameter == "simple_ann":
-        target_observable = "magnetization"
-    else: 
-        target_observable = args.order_parameter
-
-    temps = read_temperatures(temp_file)   # read once, not per L
+    temps = read_temperatures(args.temp_file)
 
     for i, L in enumerate(args.L):
 
-        if "lrim" in args.ising_solver:
-            file_path = dir_path + f"/observables/test2/{target_observable}_{args.ising_solver}_L{L}_sigma_{args.sigma_index}.csv"
-        elif "lb" in args.ising_solver:
-            file_path = dir_path + f"/observables/test2/{target_observable}_{args.ising_solver}_L{L}_sigma_{args.sigma_index}.csv"
-        else:
-            file_path = dir_path + f"/observables/test2/{target_observable}_{args.ising_solver}_L{L}.csv"
+        file_path = args.file_path[i]
 
         df = pd.read_csv(file_path, index_col=0)
         if args.order_parameter == "simple_ann":
@@ -320,7 +312,7 @@ if __name__ == "__main__":
             input_array = df.abs().to_numpy()
 
         if args.metric == "susceptibility":
-            stat = lambda M: (M[2] - M[1]**2) * num_spins_list[i] / temps
+            stat = lambda M: (M[2] - M[1]**2) * args.N[i] / temps
         elif args.metric == "binder":
             stat = lambda M: 1.0 - M[4] / (3.0 * M[2]**2)
         else:
@@ -331,8 +323,8 @@ if __name__ == "__main__":
         parameter_data.append(parameter)
         parameter_errors.append(parameter_error)
 
-    plot_metric(args, parameter_data, parameter_errors, temps, plot_dir)
+    plot_metric(args, parameter_data, parameter_errors, temps, args.plot_dir)
 
-    plot_fss_order_parameter(args, parameter_data, parameter_errors, temps, plot_dir)
+    plot_fss_order_parameter(args, parameter_data, parameter_errors, temps, args.plot_dir)
 
 
