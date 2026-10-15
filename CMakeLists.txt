@@ -43,5 +43,5 @@ target_link_libraries(run PRIVATE runner core CLI11::CLI11)
 add_executable(lattice_viz LatticeViz.cpp)
 target_link_libraries(lattice_viz PRIVATE core)
 
-add_executable(BenchmarkSolver BenchmarkSolver.cpp)
-target_link_libraries(BenchmarkSolver PRIVATE core solvers CLI11::CLI11)
+add_executable(benchmark benchmark.cpp)
+target_link_libraries(benchmark PRIVATE core solvers CLI11::CLI11)

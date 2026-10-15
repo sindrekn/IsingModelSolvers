@@ -412,7 +412,7 @@ int main(int argc, char *argv[])
     std::string ising_solver; 
     app.add_option("--ising_solver", ising_solver, "Ising solver to use (wolff, quadratic_nnn, cubic_nnn, lrim, lb)")
         ->required()
-        ->check(CLI::IsMember({"lrim", "lb", "wolff", "quadratic_nnn", "cubic_nnn"}));
+        ->check(CLI::IsMember({"lrim", "lb", "wolff", "quadratic_nnn", "cubic_nnn", "quadratic", "triangular", "honeycomb", "cubic"}));
 
     std::string lattice_type;
     app.add_option("--lattice_type", lattice_type, "Lattice type to use (quadratic, triangular, honeycomb, cubic)")
@@ -421,14 +421,7 @@ int main(int argc, char *argv[])
 
     int L = 0; 
     app.add_option("--L", L, "Lattice size (LxL for 2D, LxLxL for 3D)")
-        ->check(CLI::PositiveNumber);
-
-    int Lx = 0; 
-    app.add_option("--Lx", Lx, "Lattice size in x-direction (for triangular and honeycomb lattices)")
-        ->check(CLI::PositiveNumber);
-    
-    int Ly = 0; 
-    app.add_option("--Ly", Ly, "Lattice size in y-direction (for triangular and honeycomb lattices)")
+        ->required()
         ->check(CLI::PositiveNumber);
 
     double sigma = 0.0;
@@ -455,23 +448,6 @@ int main(int argc, char *argv[])
 
     CLI11_PARSE(app, argc, argv);
 
-    if (ising_solver == "triangular" || ising_solver == "honeycomb") {
-        if (Lx > 0 && Ly > 0) {
-            std::cout << "Using specified Lx and Ly for lattice size: " << Lx << "x" << Ly << std::endl;
-        } else if (L > 0) {
-            std::cout << "Using specified L for lattice size: " << L << "x" << L << std::endl;
-            Lx = Ly = L;
-        } else {
-            std::cerr << "Error: For triangular and honeycomb lattices, either --L, or both --Lx and --Ly, must be specified and greater than 0." << std::endl;
-            return 1;
-        }
-    } else {
-        if (L <= 0) {
-            std::cerr << "Error: For other lattices, --L must be specified and greater than 0." << std::endl;
-            return 1;
-        }
-    }
-
     const bool is_3d = (ising_solver == "cubic_nnn") ||
                     (ising_solver == "wolff" && lattice_type == "cubic");
     int N = is_3d ? L * L * L : L * L;
@@ -490,6 +466,14 @@ int main(int argc, char *argv[])
         avg_time = benchmark.BenchmarkQuadraticNNN(J1, J2);
     } else if (ising_solver == "cubic_nnn") {
         avg_time = benchmark.BenchmarkCubicNNN(J1, J2);
+    } else if (ising_solver == "quadratic") {
+        avg_time = benchmark.BenchmarkQuadratic();
+    } else if (ising_solver == "triangular") {
+        avg_time = benchmark.BenchmarkTriangular();
+    } else if (ising_solver == "honeycomb") {
+        avg_time = benchmark.BenchmarkHoneycomb();
+    } else if (ising_solver == "cubic") {
+        avg_time = benchmark.BenchmarkCubic();
     } else {
         std::cerr << "Error: Unknown Ising solver specified." << std::endl;
         return 1;
@@ -523,7 +507,7 @@ int main(int argc, char *argv[])
     } else {
         outfile << ising_solver << ","
                 << lattice_type << ","
-                << Lx << "x" << Ly << ","
+                << L << "x" << L << ","
                 << temp << ","
                 << num_sweeps << ","
                 << sigma << ","

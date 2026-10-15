@@ -1,0 +1,5 @@
+ising_solver,lattice_type,size,temp,num_sweeps,sigma,avg_time_s
+quadratic,quadratic,32x32,2.27,10000,0,9.35076e-06
+honeycomb,honeycomb,32x32,1.5,10000,0,8.12273e-06
+triangular,triangular,32x32,3.6,10000,0,9.54341e-06
+cubic,cubic,32x32,4.5,10000,0,1.32708e-05
