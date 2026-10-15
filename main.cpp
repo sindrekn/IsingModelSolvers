@@ -28,6 +28,7 @@ int main(int argc, char *argv[])
 
     int L = 0; 
     app.add_option("--L", L, "Lattice size (LxL for 2D, LxLxL for 3D)")
+        ->required()
         ->check(CLI::PositiveNumber);
 
     double t_c;
@@ -60,6 +61,7 @@ int main(int argc, char *argv[])
 
     std::string base_dir;
     app.add_option("--base_dir", base_dir, "Base directory for storing simulation results")
+        ->required()
         ->check(CLI::ExistingDirectory);
 
     CLI11_PARSE(app, argc, argv);

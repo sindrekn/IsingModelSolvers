@@ -16,3 +16,4 @@ analysis/lattize_analytics
 TestSweepSpeed.cpp
 benchmark_results.txt
 analysis/time_scaling.py
+analysis/preform_analytics.sh

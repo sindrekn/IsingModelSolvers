@@ -2,7 +2,6 @@ import argparse
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
-import file_reader
 import FSS
 import pandas as pd
 
@@ -34,7 +33,7 @@ def sigmoid(x):
 def simple_ann(args, df): 
     return sigmoid(args.a * np.abs(df.values) + args.bias)
 
-def plot_metric(args, parameter_data, parameter_error, temps, plot_dir):
+def plot_metric(args, parameter_data, parameter_error, temps):
 
     plt.style.use("seaborn-v0_8-whitegrid" if "seaborn-v0_8-whitegrid" in plt.style.available else "default")
     fig, ax = plt.subplots(figsize=(7, 5), dpi=300)
@@ -65,29 +64,18 @@ def plot_metric(args, parameter_data, parameter_error, temps, plot_dir):
     # Labels and Aesthetics
     ax.set_xlabel(r"Temperature ($T$)", fontsize=12, labelpad=8)
     ax.set_ylabel(args.metric, fontsize=12, labelpad=8)
-    ax.set_title(
-        f"{args.metric} vs Temperature ({args.ising_solver.upper()})",
-        fontsize=13,
-        pad=12,
-        weight="semibold",
-    )
 
     ax.grid(True, linestyle=":", alpha=0.6)
     ax.tick_params(axis="both", which="major", labelsize=10)
     ax.legend(frameon=False, fontsize=10)
 
-    # Save and show
-    if "lrim" in args.ising_solver or "lb" in args.ising_solver:
-        save_path = plot_dir + f"/{args.ising_solver}_si_{args.sigma_index}.pdf"
-    else:
-        save_path = plot_dir + f"/{args.ising_solver}.pdf"
 
     plt.tight_layout()
-    # plt.savefig(save_path, bbox_inches="tight")
+    plt.savefig(args.save_path, bbox_inches="tight")
     plt.show()
     plt.close(fig)
 
-def plot_fss_order_parameter(args, parameter_data, parameter_error, temps, plot_dir): 
+def plot_fss_order_parameter(args, parameter_data, parameter_error, temps): 
     if args.upper == 0: 
         args.upper = len(temps) - 1
 
@@ -150,16 +138,8 @@ def plot_fss_order_parameter(args, parameter_data, parameter_error, temps, plot_
     fig.suptitle(f"Finite-size scaling — {args.ising_solver}", fontsize=14, y=1.02)
     fig.tight_layout()
 
-    # Save and show
-    if "lrim" in args.ising_solver:
-        save_path = plot_dir + f"/fss_{args.ising_solver}_si_{args.sigma_index}.pdf"
-    elif "lb" in args.ising_solver:
-        save_path = plot_dir + f"/fss_{args.ising_solver}_si_{args.sigma_index}.pdf"
-    else: 
-        save_path = plot_dir + f"/fss_{args.ising_solver}.pdf"
-
     plt.tight_layout()
-    # plt.savefig(save_path, bbox_inches="tight")
+    plt.savefig(args.save_path, bbox_inches="tight")
     plt.show()
     plt.close(fig)  # Close the figure to free memory
 
@@ -183,11 +163,11 @@ def parse_args():
         help="Path to the CSV file containing the temperature data"
     )
     parser.add_argument(
-        "-p", "--plot-dir",
-        dest="plot_dir",
+        "-s", "--save_path",
+        dest="save_path",
         type=str,
-        default="plot",
-        help="Directory to save the plots"
+        default="plot.pdf",
+        help="Path to save the plots"
     )
     parser.add_argument(
         "-L", "--lattice-sizes",
@@ -323,8 +303,8 @@ if __name__ == "__main__":
         parameter_data.append(parameter)
         parameter_errors.append(parameter_error)
 
-    plot_metric(args, parameter_data, parameter_errors, temps, args.plot_dir)
+    plot_metric(args, parameter_data, parameter_errors, temps)
 
-    plot_fss_order_parameter(args, parameter_data, parameter_errors, temps, args.plot_dir)
+    # plot_fss_order_parameter(args, parameter_data, parameter_errors, temps)
 
 

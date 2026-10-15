@@ -18,12 +18,12 @@ public:
         int num_sweeps
     ); 
 
-    // void BenchmarkQuadratic();
+    double BenchmarkQuadratic();
     double BenchmarkWolff(std::string lattice_type);
     double BenchmarkQuadraticNNN(double J1, double J2);
-    // void BenchmarkTriangular(int Lx, int Ly);
-    // void BenchmarkHoneycomb(int Lx, int Ly);
-    // void BenchmarkCubic();
+    double BenchmarkTriangular();
+    double BenchmarkHoneycomb();
+    double BenchmarkCubic();
     double BenchmarkCubicNNN(double J1, double J2);
     double BenchmarkLRIM(double sigma);
     double BenchmarkLB(double sigma);
@@ -107,6 +107,50 @@ double BenchmarkSolver::BenchmarkWolff(std::string lattice_type) {
     return elapsed / num_sweeps;
 }
 
+double BenchmarkSolver::BenchmarkQuadratic() {
+    std::cout << "SA: 2D Ising simulation with L=" << L << " and Quadratic Nearest Neighbor updates\n";
+    std::cout << "Beta: " << beta << " and num_sweeps: " << num_sweeps;
+    std::cout << "\n";
+
+    std::vector<double> temp_schedule(1, 1.0 / beta);
+
+    std::vector<int> nn_neighbors = neighbors_quadratic(L);
+    std::vector<double> BetaJS = BetaJS_quadratic(temp_schedule, 1.0);
+
+    std::vector<int> even_sites, odd_sites;
+    even_sites.reserve(N / 2);
+    odd_sites.reserve(N / 2);
+    for (int id = 0; id < N; id++) {
+        if (((id / L) + (id % L)) % 2 == 0) even_sites.push_back(id);
+        else odd_sites.push_back(id);
+    }
+
+    auto t_start = std::chrono::high_resolution_clock::now();
+                    
+    for (int sweep = 0; sweep < num_sweeps; sweep++) {
+        for (int parity = 0; parity < 2; parity++) {
+            quadratic(
+                nn_neighbors.data(),
+                BetaJS.data(),
+                even_sites,
+                odd_sites,
+                parity,
+                state.data(),
+                udist,
+                rng);
+            }
+    }
+
+    auto t_end = std::chrono::high_resolution_clock::now();
+    double elapsed = std::chrono::duration<double>(t_end - t_start).count();
+
+    std::cout << "\n"
+            << "Simulation took \t \t" << elapsed << " s\n"
+            << "Avg time per sweep: \t \t" << elapsed / num_sweeps << " s\n";
+    
+    return elapsed / num_sweeps;
+}
+
 double BenchmarkSolver::BenchmarkQuadraticNNN(double J1, double J2) {
     std::cout << "SA: 2D Ising simulation with L=" << L << " and Quadratic Next-Nearest Neighbor updates\n";
     std::cout << "Beta: " << beta << " and num_sweeps: " << num_sweeps;
@@ -128,6 +172,120 @@ double BenchmarkSolver::BenchmarkQuadraticNNN(double J1, double J2) {
             state.data(),
             udist,
             rng);
+    }
+
+    auto t_end = std::chrono::high_resolution_clock::now();
+    double elapsed = std::chrono::duration<double>(t_end - t_start).count();
+
+    std::cout << "\n"
+            << "Simulation took \t \t" << elapsed << " s\n"
+            << "Avg time per sweep: \t \t" << elapsed / num_sweeps << " s\n";
+    
+    return elapsed / num_sweeps;
+}
+
+double BenchmarkSolver::BenchmarkHoneycomb() {
+    std::cout << "SA: 2D Ising simulation with L=" << L << " and Honeycomb updates\n";
+    std::cout << "Beta: " << beta << " and num_sweeps: " << num_sweeps;
+    std::cout << "\n";
+
+    std::vector<int> neighbors = neighbors_honeycomb(L, L);
+
+    std::vector<double> temp_schedule(1, 1.0 / beta);
+    std::vector<double> BetaJS = BetaJS_honeycomb(temp_schedule, 1.0);
+
+    auto t_start = std::chrono::high_resolution_clock::now();
+                    
+    for (int sweep = 0; sweep < num_sweeps; sweep++) {
+        honeycomb(
+            N,
+            neighbors.data(),
+            BetaJS.data(),
+            state.data(),
+            udist,
+            rng);
+    }
+
+    auto t_end = std::chrono::high_resolution_clock::now();
+    double elapsed = std::chrono::duration<double>(t_end - t_start).count();
+
+    std::cout << "\n"
+            << "Simulation took \t \t" << elapsed << " s\n"
+            << "Avg time per sweep: \t \t" << elapsed / num_sweeps << " s\n";
+    
+    return elapsed / num_sweeps;
+}
+
+double BenchmarkSolver::BenchmarkTriangular() {
+    std::cout << "SA: 2D Ising simulation with L=" << L << " and Triangular updates\n";
+    std::cout << "Beta: " << beta << " and num_sweeps: " << num_sweeps;
+    std::cout << "\n";
+
+    std::vector<int> neighbors = neighbors_triangular(L, L);
+
+    std::vector<double> temp_schedule(1, 1.0 / beta);
+    std::vector<double> BetaJS = BetaJS_triangular(temp_schedule, 1.0);
+
+    auto t_start = std::chrono::high_resolution_clock::now();
+                    
+    for (int sweep = 0; sweep < num_sweeps; sweep++) {
+        triangular(
+            N,
+            neighbors.data(),
+            BetaJS.data(),
+            state.data(),
+            udist,
+            rng);
+    }
+
+    auto t_end = std::chrono::high_resolution_clock::now();
+    double elapsed = std::chrono::duration<double>(t_end - t_start).count();
+
+    std::cout << "\n"
+            << "Simulation took \t \t" << elapsed << " s\n"
+            << "Avg time per sweep: \t \t" << elapsed / num_sweeps << " s\n";
+    
+    return elapsed / num_sweeps;
+}
+
+double BenchmarkSolver::BenchmarkCubic() {
+    std::cout << "SA: 3D Ising simulation with L=" << L << " and Cubic updates\n";
+    std::cout << "Beta: " << beta << " and num_sweeps: " << num_sweeps;
+    std::cout << "\n";
+
+    std::vector<int> neighbors = neighbors_cubic(L);
+
+    std::vector<double> temp_schedule(1, 1.0 / beta);
+    std::vector<double> BetaJS = BetaJS_cubic(temp_schedule, 1.0);
+
+    std::vector<int> even_sites, odd_sites;
+    even_sites.reserve(N / 2);
+    odd_sites.reserve(N / 2);
+    for (int id = 0; id < N; id++) {
+        int i = id / (L * L);
+        int j = (id / L) % L;
+        int k = id % L;
+
+        if ((i + j + k) % 2 == 0)
+            even_sites.push_back(id);
+        else
+            odd_sites.push_back(id);
+    }
+
+    auto t_start = std::chrono::high_resolution_clock::now();
+                    
+    for (int sweep = 0; sweep < num_sweeps; sweep++) {
+        for (int parity = 0; parity < 2; parity++) {
+            cubic(
+                neighbors.data(),
+                BetaJS.data(),
+                even_sites,
+                odd_sites,
+                parity,
+                state.data(),
+                udist,
+                rng);
+        }
     }
 
     auto t_end = std::chrono::high_resolution_clock::now();
