@@ -3,6 +3,7 @@ build/
 temp/
 benchmarks/
 analysis/__pycache__/
+build-asan/
 
 # Ignore compiled files
 analysis/file_reader.cpython-312-x86_64-linux-gnu.so

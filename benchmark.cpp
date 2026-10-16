@@ -273,7 +273,7 @@ double BenchmarkSolver::BenchmarkCubic() {
     }
 
     auto t_start = std::chrono::high_resolution_clock::now();
-                    
+
     for (int sweep = 0; sweep < num_sweeps; sweep++) {
         for (int parity = 0; parity < 2; parity++) {
             cubic(
@@ -449,7 +449,8 @@ int main(int argc, char *argv[])
     CLI11_PARSE(app, argc, argv);
 
     const bool is_3d = (ising_solver == "cubic_nnn") ||
-                    (ising_solver == "wolff" && lattice_type == "cubic");
+                    (ising_solver == "wolff" && lattice_type == "cubic") ||
+                    (ising_solver == "cubic");
     int N = is_3d ? L * L * L : L * L;
 
     BenchmarkSolver benchmark(L, N, temp, num_sweeps);
