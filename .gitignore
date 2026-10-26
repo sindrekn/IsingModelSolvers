@@ -4,6 +4,7 @@ temp/
 benchmarks_v1/
 analysis/__pycache__/
 build-asan/
+analysis/SomeClaudeShit/
 
 # Ignore compiled files
 analysis/file_reader.cpython-312-x86_64-linux-gnu.so
@@ -16,5 +17,4 @@ analysis/lattize_analytics.py
 analysis/lattize_analytics
 TestSweepSpeed.cpp
 benchmark_results.txt
-analysis/time_scaling.py
-analysis/preform_analytics.sh
+analysis/plot_order_parameter.py

@@ -62,8 +62,7 @@ def fit_loglog_line(ax, lnL, lnchi, dlnchi, color="#d62728"):
     ax.plot(
         xs, slope * xs + intercept,
         linestyle="--", lw=1.5, color=color, zorder=2,
-        label=fr"Fit: $\gamma/\nu= {slope:.3f} \pm {d_slope:.3f}$" "\n" 
-        fr"$\eta = {2 - slope:.3f} \pm {d_slope:.3f}$",
+        label=fr"Fit: $\eta= {-slope:.3f} \pm {d_slope:.3f}$"
     )
     return slope, d_slope, intercept, d_intercept
 
@@ -166,15 +165,19 @@ def plot_metric(args, parameter_data, parameter_error, temps, Tmean=None, Terr=N
     plt.show()
     # plt.close(fig)
 
-def plot_suceptibility(args, suceptibility_at_Tc, suceptibility_error):
+def scale_suceptibility(args, suceptibility_at_Tc, suceptibility_error):
 
     plt.style.use("seaborn-v0_8-whitegrid" if "seaborn-v0_8-whitegrid" in plt.style.available else "default")
     fig, ax = plt.subplots(figsize=(7, 5), dpi=300)
 
     colors = cm.viridis(np.linspace(0, 0.9, len(args.L)))
 
-    chi = np.asarray(suceptibility_at_Tc)
+    chi = np.asarray(suceptibility_at_Tc) 
     dchi = np.asarray(suceptibility_error)
+
+    for i in range(len(chi)): 
+        chi[i] = chi[i] / args.N[i]
+        dchi[i] = dchi[i] / args.N[i]
 
     lnL = np.log(np.asarray(args.L, dtype=float))
     lnchi = np.log(chi)
@@ -190,13 +193,11 @@ def plot_suceptibility(args, suceptibility_at_Tc, suceptibility_error):
 
     slope, d_slope, intercept, d_intercept = fit_loglog_line(ax, lnL, lnchi, dlnchi)
     print(f"slope = {slope:.4f} +- {d_slope:.4f}, intercept = {intercept:.4f} +- {d_intercept:.4f}")
-    eta = 2 - slope
-    d_eta = d_slope
-    print(f"eta = {eta:.4f} +- {d_eta:.4f}")
+    print(f"eta = {-slope:.4f} +- {d_slope:.4f}")
 
     # Labels and Aesthetics
     ax.set_xlabel(r"$\ln L$", fontsize=12, labelpad=8)
-    ax.set_ylabel(r"$\ln (\chi_{T_c})$", fontsize=12, labelpad=8)
+    ax.set_ylabel(r"$\ln (\chi_{T_c}/L^2)$", fontsize=12, labelpad=8)
 
     ax.grid(True, linestyle=":", alpha=0.6)
     ax.tick_params(axis="both", which="major", labelsize=10)
@@ -207,7 +208,7 @@ def plot_suceptibility(args, suceptibility_at_Tc, suceptibility_error):
 
     plt.tight_layout()
     plt.savefig(args.save_path, bbox_inches="tight")
-    # plt.show()
+    plt.show()
 
 def plot_fss_order_parameter(args, parameter_data, parameter_error, temps): 
     if args.upper == 0: 
@@ -534,7 +535,7 @@ if __name__ == "__main__":
             )
             suceptibility_at_Tc.append(val)
             suceptibility_error.append(err)
-        plot_suceptibility(args, suceptibility_at_Tc, suceptibility_error)
+        scale_suceptibility(args, suceptibility_at_Tc, suceptibility_error)
     
     else:
         plot_metric(args, parameter_data, parameter_errors, temps)

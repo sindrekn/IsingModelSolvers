@@ -86,6 +86,83 @@ private:
 };
 
 // ---------------------------------------------------------------------------
+// Energy calculation helpers
+// ---------------------------------------------------------------------------
+
+struct LongRange_DistanceResult {
+    std::vector<int> dx;
+    std::vector<int> dy;
+    std::vector<double> J_r;
+};
+
+LongRange_DistanceResult LongRange_DistancePrecompute(int L, double sigma)
+{
+    // Ensure L is a positive integer dividable by 2 for periodic boundary conditions
+    if (L <= 0 || L % 2 != 0) {
+        throw std::invalid_argument("L must be a positive even integer.");
+    }
+
+    int N = L * L;
+    LongRange_DistanceResult result;
+
+    result.dx.resize(N - 1);
+    result.dy.resize(N - 1);
+    result.J_r.resize(N - 1);
+
+    // Precompute all distances from a reference site (e.g., site 0) to all other sites
+    std::vector<double> r(N - 1);
+    int id = 0; 
+    for (int x = -L/2; x < L/2; x++) {
+        for (int y = -L/2; y < L/2; y++) {
+            if (x == 0 && y == 0) continue; // Skip the origin
+            result.dx[id] = x;
+            result.dy[id] = y;
+            r[id] = std::sqrt(x*x + y*y);
+            id += 1; 
+        }
+    }
+
+    // Determine the coupeling constant based on the system size and sigma
+    double sum = 0.0;
+    for (int j = 0; j < N - 1; ++j) {
+        sum += 1.0 / std::pow(r[j], (2.0 + sigma));
+    }
+
+    double c_norm = 4.0 / sum; // Normalization constant
+
+    for (int j = 0; j < N - 1; ++j) {
+        result.J_r[j] = c_norm / std::pow(r[j], (2.0 + sigma));
+    }
+
+    // Create a vector of indices [0, 1, 2, ..., N-2]
+    std::vector<size_t> indices(N - 1);
+    std::iota(indices.begin(), indices.end(), 0);
+
+    // Sort the indices based on the decreasing values of result.J_r
+    std::sort(indices.begin(), indices.end(), [&](size_t i, size_t j) {
+        return result.J_r[i] > result.J_r[j];
+    });
+
+    // Reorder the vectors using the sorted indices
+    std::vector<int> sorted_dx(N - 1);
+    std::vector<int> sorted_dy(N - 1);
+    std::vector<double> sorted_r(N - 1);
+
+    for (size_t i = 0; i < indices.size(); ++i) {
+        sorted_dx[i] = result.dx[indices[i]];
+        sorted_dy[i] = result.dy[indices[i]];
+        sorted_r[i]  = result.J_r[indices[i]];
+    }
+
+    // Move the sorted vectors back into the result struct
+    result.dx = std::move(sorted_dx);
+    result.dy = std::move(sorted_dy);
+    result.J_r  = std::move(sorted_r);
+
+    return result;
+}
+
+// ---------------------------------------------------------------------------
 // Bit-unpacking helpers
 // ---------------------------------------------------------------------------
 
@@ -100,10 +177,32 @@ std::vector<int> unpack_spins(const std::vector<uint64_t>& state, int num_spins)
     return spins;
 }
 
-double average_magnetization(const std::vector<int>& spins) {
+double magnetization(const std::vector<int>& spins) {
     double sum = 0.0;
     for (int s : spins) sum += s;
     return sum / static_cast<double>(spins.size());
+}
+
+double energyLR(
+    const std::vector<int>& spins,
+    int L, 
+    const LongRange_DistanceResult& distanceResult
+) 
+{    
+    double E = 0.0;
+    for (int row = 0; row < L; ++row) {
+        for (int col = 0; col < L; ++col) {
+            int idx = row * L + col;
+            int s = spins[idx];
+            for (size_t k = 0; k < distanceResult.dx.size(); ++k) {
+                int xj = (col + distanceResult.dx[k] + L) % L;
+                int yj = (row + distanceResult.dy[k] + L) % L;
+                int jdx = yj * L + xj;
+                E -= distanceResult.J_r[k] * s * spins[jdx];
+            }
+        }
+    }
+    return E;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,7 +222,7 @@ void print_lattice_snapshots(const std::string& filepath, int num_spins) {
         }
         std::cout << "\n";
 
-        std::cout << "Average Magnetization: " << average_magnetization(spins) << "\n";
+        std::cout << "Magnetization: " << magnetization(spins) << "\n";
     }
 
     std::cout << "Total snapshots read: " << reader.snapshot_index() << "\n";
@@ -135,9 +234,22 @@ std::vector<double> return_mag(const std::string& filepath, int num_spins) {
 
     while (auto state = reader.next()) {
         auto spins = unpack_spins(*state, num_spins);
-        m.push_back(average_magnetization(spins));
+        m.push_back(magnetization(spins));
     }
     return m;
+}
+
+std::vector<double> return_energyLR(const std::string& filepath, int num_spins, double sigma) {
+    SnapshotReader reader(filepath, num_spins);
+    int L = static_cast<int>(std::sqrt(num_spins));
+    LongRange_DistanceResult distanceResult = LongRange_DistancePrecompute(L, sigma);
+    std::vector<double> e;
+
+    while (auto state = reader.next()) {
+        auto spins = unpack_spins(*state, num_spins);
+        e.push_back(energyLR(spins, L, distanceResult));
+    }
+    return e;
 }
 
 std::vector<double> return_simple_ann(const std::string& filepath, int num_spins, double ymin, double ymax) {
@@ -225,6 +337,7 @@ struct Args {
     double v0 = 0.0;
     double w = 1.0;
     double b = 0.0;
+    double sigma = 0.0;
     std::string dir_path;
     std::string save_path;
 };
@@ -280,6 +393,13 @@ void save_magnetization(const Args& args, const std::string& dir_path,
     });
 }
 
+void save_energyLR(const Args& args, const std::string& dir_path,
+                   const std::string& save_path, int num_spins, double sigma) {
+    save_observable(args, dir_path, save_path, [&](const std::string& f) {
+        return return_energyLR(f, num_spins, sigma);
+    });
+}
+
 void save_regmag(const Args& args, const std::string& dir_path,
                  const std::string& save_path, int num_spins, int A) {
     if (num_spins % (A * A) != 0) {
@@ -298,7 +418,7 @@ void save_regmag(const Args& args, const std::string& dir_path,
 
 static void print_usage(const char* prog) {
     std::cerr
-        << "Usage: " << prog << " -op <magnetization|regmag> -N <sizes...> -I <solver> -t <num_temps> -r <num_runs>\n"
+        << "Usage: " << prog << " -op <magnetization|energyLR|regmag> -N <sizes...> -I <solver> -t <num_temps> -r <num_runs>\n"
         << "         [-si <sigma_index>] [-A <region sizes...>] [-v0 <x>] [-w <x>] [-b <x>] [--base-root <dir>]\n";
 }
 
@@ -332,6 +452,7 @@ Args parse_args(int argc, char** argv) {
         else if (a == "-v0" || a == "--v0") { args.v0 = std::stod(need_value(i)); }
         else if (a == "-w" || a == "--w") { args.w = std::stod(need_value(i)); }
         else if (a == "-b" || a == "--b") { args.b = std::stod(need_value(i)); }
+        else if (a == "--sigma") { args.sigma = std::stod(need_value(i)); }
         else if (a == "--dir-path") { args.dir_path = need_value(i); }
         else if (a == "--save-path") { args.save_path = need_value(i); }
         else throw std::invalid_argument("Unknown argument: " + a);
@@ -358,17 +479,21 @@ int main(int argc, char** argv) {
     
 
     try {
-        const bool is_regmag = args.order_parameter == "regmag";
-        if (is_regmag && args.A <= 0) {
+        if (args.order_parameter == "energyLR") {
+            if (args.sigma <= 0) {
+                throw std::invalid_argument("energyLR needs sigma > 0, but got sigma=" + std::to_string(args.sigma));
+            }
+            save_energyLR(args, args.dir_path, args.save_path, args.N, args.sigma);
+        } else if (args.order_parameter == "magnetization") {
+            save_magnetization(args, args.dir_path, args.save_path, args.N);
+        } else if (args.order_parameter == "regmag") {
+            if (args.A <= 0) {
                 throw std::invalid_argument("regmag needs A > 0, but got A=" + std::to_string(args.A));
-        }
-        
-        if (!is_regmag && args.order_parameter != "magnetization") {
+            }
+            save_regmag(args, args.dir_path, args.save_path, args.N, args.A);
+        } else {
             throw std::invalid_argument("Unknown order parameter: " + args.order_parameter);
         }
-
-        if (is_regmag) save_regmag(args, args.dir_path, args.save_path, args.N, args.A);
-        else           save_magnetization(args, args.dir_path, args.save_path, args.N);
 
         std::cout << "Saved average " << args.order_parameter
                     << " to " << args.save_path << "\n";
