@@ -2,19 +2,16 @@
 build/
 temp/
 benchmarks_v1/
-analysis/__pycache__/
+analyze/plotting/__pycache__/
 build-asan/
-analysis/SomeClaudeShit/
 
 # Ignore compiled files
-analysis/file_reader.cpython-312-x86_64-linux-gnu.so
 run_ising_solvers.sh
 mainV0.cpp
 backend/runnerv2.cpp
 backend/runnerv2.hpp
-analysis/file_reader.cpp
-analysis/lattize_analytics.py
-analysis/lattize_analytics
+analyze/file_reader.cpp
+analyze/lattize_analytics.py
+analyze/analyze
 TestSweepSpeed.cpp
 benchmark_results.txt
-analysis/plot_order_parameter.py

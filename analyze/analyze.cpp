@@ -11,6 +11,7 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include <fftw3.h>
 
 // ---------------------------------------------------------------------------
 // Small numeric helpers
@@ -85,82 +86,6 @@ private:
     int snapshot_index_ = 0;
 };
 
-// ---------------------------------------------------------------------------
-// Energy calculation helpers
-// ---------------------------------------------------------------------------
-
-struct LongRange_DistanceResult {
-    std::vector<int> dx;
-    std::vector<int> dy;
-    std::vector<double> J_r;
-};
-
-LongRange_DistanceResult LongRange_DistancePrecompute(int L, double sigma)
-{
-    // Ensure L is a positive integer dividable by 2 for periodic boundary conditions
-    if (L <= 0 || L % 2 != 0) {
-        throw std::invalid_argument("L must be a positive even integer.");
-    }
-
-    int N = L * L;
-    LongRange_DistanceResult result;
-
-    result.dx.resize(N - 1);
-    result.dy.resize(N - 1);
-    result.J_r.resize(N - 1);
-
-    // Precompute all distances from a reference site (e.g., site 0) to all other sites
-    std::vector<double> r(N - 1);
-    int id = 0; 
-    for (int x = -L/2; x < L/2; x++) {
-        for (int y = -L/2; y < L/2; y++) {
-            if (x == 0 && y == 0) continue; // Skip the origin
-            result.dx[id] = x;
-            result.dy[id] = y;
-            r[id] = std::sqrt(x*x + y*y);
-            id += 1; 
-        }
-    }
-
-    // Determine the coupeling constant based on the system size and sigma
-    double sum = 0.0;
-    for (int j = 0; j < N - 1; ++j) {
-        sum += 1.0 / std::pow(r[j], (2.0 + sigma));
-    }
-
-    double c_norm = 4.0 / sum; // Normalization constant
-
-    for (int j = 0; j < N - 1; ++j) {
-        result.J_r[j] = c_norm / std::pow(r[j], (2.0 + sigma));
-    }
-
-    // Create a vector of indices [0, 1, 2, ..., N-2]
-    std::vector<size_t> indices(N - 1);
-    std::iota(indices.begin(), indices.end(), 0);
-
-    // Sort the indices based on the decreasing values of result.J_r
-    std::sort(indices.begin(), indices.end(), [&](size_t i, size_t j) {
-        return result.J_r[i] > result.J_r[j];
-    });
-
-    // Reorder the vectors using the sorted indices
-    std::vector<int> sorted_dx(N - 1);
-    std::vector<int> sorted_dy(N - 1);
-    std::vector<double> sorted_r(N - 1);
-
-    for (size_t i = 0; i < indices.size(); ++i) {
-        sorted_dx[i] = result.dx[indices[i]];
-        sorted_dy[i] = result.dy[indices[i]];
-        sorted_r[i]  = result.J_r[indices[i]];
-    }
-
-    // Move the sorted vectors back into the result struct
-    result.dx = std::move(sorted_dx);
-    result.dy = std::move(sorted_dy);
-    result.J_r  = std::move(sorted_r);
-
-    return result;
-}
 
 // ---------------------------------------------------------------------------
 // Bit-unpacking helpers
@@ -183,27 +108,59 @@ double magnetization(const std::vector<int>& spins) {
     return sum / static_cast<double>(spins.size());
 }
 
-double energyLR(
-    const std::vector<int>& spins,
-    int L, 
-    const LongRange_DistanceResult& distanceResult
-) 
-{    
-    double E = 0.0;
-    for (int row = 0; row < L; ++row) {
-        for (int col = 0; col < L; ++col) {
-            int idx = row * L + col;
-            int s = spins[idx];
-            for (size_t k = 0; k < distanceResult.dx.size(); ++k) {
-                int xj = (col + distanceResult.dx[k] + L) % L;
-                int yj = (row + distanceResult.dy[k] + L) % L;
-                int jdx = yj * L + xj;
-                E -= distanceResult.J_r[k] * s * spins[jdx];
+
+struct EnergyAnalyzer {
+    int L, N, Nk;
+    std::vector<double> Khat;            // FFT of kernel, size L*(L/2+1)
+    double* real_buf;                    // L*L
+    fftw_complex* cplx_buf;              // L*(L/2+1)
+    fftw_plan fwd, inv;
+
+    EnergyAnalyzer(int L_, double sigma) : L(L_), N(L_*L_), Nk(L_*(L_/2 + 1)) {
+        real_buf = fftw_alloc_real(N);
+        cplx_buf = fftw_alloc_complex(Nk);
+        fwd = fftw_plan_dft_r2c_2d(L, L, real_buf, cplx_buf, FFTW_MEASURE);
+        inv = fftw_plan_dft_c2r_2d(L, L, cplx_buf, real_buf, FFTW_MEASURE);
+
+        // Kernel indexed by displacement mod L, same box [-L/2, L/2) and
+        // normalisation (sum = 4) as your LongRange_DistancePrecompute.
+        std::vector<double> K(N, 0.0);
+        double sum = 0.0;
+        for (int y = 0; y < L; ++y)
+            for (int x = 0; x < L; ++x) {
+                if (x == 0 && y == 0) continue;
+                int dx = (x >= L/2) ? x - L : x;
+                int dy = (y >= L/2) ? y - L : y;
+                double v = std::pow(double(dx*dx + dy*dy), -(2.0 + sigma) / 2.0);
+                K[y*L + x] = v;
+                sum += v;
             }
-        }
+        for (double& v : K) v *= 4.0 / sum;
+
+        for (int i = 0; i < N; ++i) real_buf[i] = K[i];
+        fftw_execute(fwd);
+        Khat.resize(Nk);
+        for (int q = 0; q < Nk; ++q) Khat[q] = cplx_buf[q][0];  // real, since K is symmetric
     }
-    return E;
-}
+
+    ~EnergyAnalyzer() {
+        fftw_destroy_plan(fwd); fftw_destroy_plan(inv);
+        fftw_free(real_buf);    fftw_free(cplx_buf);
+    }
+
+    double energy(const std::vector<int>& s) {
+        for (int i = 0; i < N; ++i) real_buf[i] = s[i];
+        fftw_execute(fwd);                                   // s -> s_hat
+        for (int q = 0; q < Nk; ++q) {                       // h_hat = K_hat * s_hat
+            cplx_buf[q][0] *= Khat[q];
+            cplx_buf[q][1] *= Khat[q];
+        }
+        fftw_execute(inv);                                   // h (unnormalised: times N)
+        double acc = 0.0;
+        for (int i = 0; i < N; ++i) acc += s[i] * real_buf[i];
+        return -0.5 * acc / N;                               // 1/N: FFTW normalisation, 1/2: each pair once
+    }
+};
 
 // ---------------------------------------------------------------------------
 // Reader-based observables
@@ -239,28 +196,18 @@ std::vector<double> return_mag(const std::string& filepath, int num_spins) {
     return m;
 }
 
-std::vector<double> return_energyLR(const std::string& filepath, int num_spins, double sigma) {
+
+std::vector<double> return_energyLRIM(const std::string& filepath, int num_spins, double sigma) {
     SnapshotReader reader(filepath, num_spins);
     int L = static_cast<int>(std::sqrt(num_spins));
-    LongRange_DistanceResult distanceResult = LongRange_DistancePrecompute(L, sigma);
+    EnergyAnalyzer analyzer(L, sigma);
     std::vector<double> e;
 
     while (auto state = reader.next()) {
         auto spins = unpack_spins(*state, num_spins);
-        e.push_back(energyLR(spins, L, distanceResult));
+        e.push_back(analyzer.energy(spins));
     }
     return e;
-}
-
-std::vector<double> return_simple_ann(const std::string& filepath, int num_spins, double ymin, double ymax) {
-    double v0 = -std::log(1 / ymin - 1);
-    double a = -v0 - std::log(1 / ymax - 1);
-    std::vector<double> avg_mags = return_mag(filepath, num_spins);
-
-    for (auto& m : avg_mags) {
-        m = sigmoid(a * m + v0);
-    }
-    return avg_mags;
 }
 
 // NOTE: 2D only (L = sqrt(N)).
@@ -396,7 +343,7 @@ void save_magnetization(const Args& args, const std::string& dir_path,
 void save_energyLR(const Args& args, const std::string& dir_path,
                    const std::string& save_path, int num_spins, double sigma) {
     save_observable(args, dir_path, save_path, [&](const std::string& f) {
-        return return_energyLR(f, num_spins, sigma);
+        return return_energyLRIM(f, num_spins, sigma);
     });
 }
 
@@ -418,7 +365,7 @@ void save_regmag(const Args& args, const std::string& dir_path,
 
 static void print_usage(const char* prog) {
     std::cerr
-        << "Usage: " << prog << " -op <magnetization|energyLR|regmag> -N <sizes...> -I <solver> -t <num_temps> -r <num_runs>\n"
+        << "Usage: " << prog << " -op <magnetization|energyLRIM|regmag> -N <sizes...> -I <solver> -t <num_temps> -r <num_runs>\n"
         << "         [-si <sigma_index>] [-A <region sizes...>] [-v0 <x>] [-w <x>] [-b <x>] [--base-root <dir>]\n";
 }
 
@@ -476,10 +423,9 @@ int main(int argc, char** argv) {
         print_usage(argv[0]);
         return 2;
     }
-    
 
     try {
-        if (args.order_parameter == "energyLR") {
+        if (args.order_parameter == "energyLRIM") {
             if (args.sigma <= 0) {
                 throw std::invalid_argument("energyLR needs sigma > 0, but got sigma=" + std::to_string(args.sigma));
             }
