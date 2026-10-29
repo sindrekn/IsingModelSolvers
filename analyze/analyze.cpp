@@ -133,7 +133,7 @@ struct EnergyAnalyzer {
                 int dy = (y >= L/2) ? y - L : y;
                 double v = std::pow(double(dx*dx + dy*dy), -(2.0 + sigma) / 2.0);
                 K[y*L + x] = v;
-                sum += v;
+                sum -= v;
             }
         for (double& v : K) v *= 4.0 / sum;
 
