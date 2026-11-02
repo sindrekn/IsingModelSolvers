@@ -14,7 +14,6 @@ def block_jackknife(x, stat, num_bins=20, return_replicates=False):
     (Ex of stat: stat = lambda M: 1.0 - M[4] / (3.0 * M[2]**2), 
     the Binder cumulant)
     
-    
     LLM-assisted
     ------------
     Tool: Claude (October 2026)
@@ -23,7 +22,7 @@ def block_jackknife(x, stat, num_bins=20, return_replicates=False):
     """
     n = (x.shape[0] // num_bins) * num_bins
     b = n // num_bins
-    x = np.abs(x[:n])
+    x = x[:n]
     S = {k: (x**k).reshape(num_bins, b, -1).sum(axis=1) for k in (1, 2, 4)}
     full = {k: S[k].sum(axis=0) / n for k in S}
     loo  = {k: (S[k].sum(axis=0) - S[k]) / (n - b) for k in S}
@@ -32,6 +31,38 @@ def block_jackknife(x, stat, num_bins=20, return_replicates=False):
     if return_replicates:
         return theta, err, theta_i
     return theta, err
+
+def block_jackknife_dlnm(m, E, power=1, num_bins=20, sign=-1):
+    """
+    d ln<|m|^i>/dbeta = sign * ( <|m|^i E>/<|m|^i> - <E> )
+
+    m, E: (n_samples, n_T) arrays (E = total energy)
+    sign = -1 for Boltzmann weight exp(-beta*E); use +1 if your E
+    is defined with the opposite sign (weight exp(+K*E)).
+    Same block-jackknife scheme as block_jackknife.
+
+    LLM-assisted
+    ------------
+    Tool: Claude (October 2026)
+    Role: Generated the block_jackknife_dlnm function for computing
+    the derivative of the logarithm of the magnetization with respect to beta.
+    """
+    n = (m.shape[0] // num_bins) * num_bins
+    b = n // num_bins
+    mi = np.abs(m[:n]) ** power
+    E = E[:n]
+
+    def binsum(a):
+        return a.reshape(num_bins, b, -1).sum(axis=1)
+
+    S = {"m": binsum(mi), "mE": binsum(mi * E), "E": binsum(E)}
+    full = {k: v.sum(axis=0) / n for k, v in S.items()}
+    loo  = {k: (v.sum(axis=0) - v) / (n - b) for k, v in S.items()}
+
+    stat = lambda M: sign * (M["mE"] / M["m"] - M["E"])
+    theta, theta_i = stat(full), stat(loo)
+    err = np.sqrt((num_bins - 1) * np.var(theta_i, axis=0, ddof=0))
+    return theta, err, theta_i
 
 def crossing_point(T, U1, U2, window, deg=3):
     """
@@ -106,6 +137,7 @@ def get_metric(name, N, T):
     metrics = {
         "direct":         lambda M: M[1],
         "susceptibility": lambda M: (M[2] - M[1]**2) * N / T,
+        "specific_heat":  lambda M: (M[2] - M[1]**2) / (N * T**2),
         "binder":         lambda M: 1 - M[4] / (3 * M[2]**2),
     }
     return metrics[name]
@@ -143,9 +175,9 @@ def plot_metric(args, parameter_data, parameter_error, temps, Tmean=None, Terr=N
         )
 
     if Tmean is not None and Terr is not None:
-        label_=fr"$T^* = {Tmean:.4f} \pm {Terr:.4f}$"
+        label_=fr"$T^* = {Tmean:.5f} \pm {Terr:.5f}$"
     elif Tmean is not None:
-        label_=fr"$T^* = {Tmean:.4f}$"
+        label_=fr"$T^* = {Tmean:.5f}$"
 
     if Tmean is not None:
         ax.axvline(
@@ -167,15 +199,19 @@ def plot_metric(args, parameter_data, parameter_error, temps, Tmean=None, Terr=N
         )
 
     # Labels and Aesthetics
-    ax.set_xlabel(r"Temperature ($T$)", fontsize=12, labelpad=8)
-    ax.set_ylabel(args.metric, fontsize=12, labelpad=8)
+    ax.set_xlabel(args.xlabel, fontsize=12, labelpad=8)
+    ax.set_ylabel(args.ylabel if args.ylabel is not None else args.metric, fontsize=12, labelpad=8)
 
     ax.grid(True, linestyle=":", alpha=0.6)
     ax.tick_params(axis="both", which="major", labelsize=10)
     ax.legend(frameon=False, fontsize=10)
 
-    ax.set_xlim(args.xmin, args.xmax)
-    ax.set_ylim(args.ymin, args.ymax)
+    if args.title is not None:
+        ax.set_title(args.title, fontsize=14, pad=10)
+    if args.xlim is not None:
+        ax.set_xlim(args.xlim)
+    if args.ylim is not None:
+        ax.set_ylim(args.ylim)
 
     plt.tight_layout()
     plt.savefig(args.save_path, bbox_inches="tight")
@@ -199,13 +235,19 @@ def parse_args():
     p.add_argument("-N", "--num-spins", dest="N", type=int, nargs="+", required=True,
                    help="Spins per lattice (e.g. 64 256 1024 2304)")
     p.add_argument("--op", required=True,
-                   help="Order parameter to plot (e.g. direct, simple_ann)")
+                   help="Order parameter to plot (e.g. mag, energy, simple_ann)")
+    p.add_argument("-m", "--metric", required=True, 
+                   help="Metric to plot (e.g. direct, binder, susceptibility)")
+
+    # Derivate parameters
+    p.add_argument("-e", "--energy-file", nargs="+",
+                    help="CSV file(s) with total energies, one per lattice size (needed for dlnm)")
+    p.add_argument("--power", type=int, default=1,
+                    help="Power i in d ln<O^i>/dbeta")
 
     # Output / analysis
     p.add_argument("-s", "--save-path", default="plot.pdf",
                    help="Path to save the plot")
-    p.add_argument("-m", "--metric",
-                   help="Metric to plot (e.g. direct, binder, susceptibility)")
     p.add_argument("--tc", dest="t_c", type=float,
                    help="Critical temperature for the Ising model")
     p.add_argument("--bins", dest="bins", type=int, default=20,
@@ -215,21 +257,34 @@ def parse_args():
     p.add_argument("--cd", type=int, default=3,
                    help="Polynomial degree for the crossing fits")
 
-    # Axis limits
+    # Parameters for simple ANN order parameter
     p.add_argument("-a", "--a", type=float, default=1.0,
                    help="Scaling for the simple ANN order parameter")
     p.add_argument("-b", "--bias", type=float, default=0.0,
                    help="Bias for the simple ANN order parameter")
-    
-    names = {"min": "Minimum", "max": "Maximum"}
-    for axis in ("x", "y"):
-        for lim, word in names.items():
-            p.add_argument(f"--{axis}{lim}", type=float,
-                           help=f"{word} {axis}-axis value for the plot")
 
+    # Optional plot aesthetics
+    p.add_argument("--xlim", type=float, nargs=2, default=None,
+                   help="X-axis limits (e.g. 2.0 2.5)")
+    p.add_argument("--ylim", type=float, nargs=2, default=None,
+                   help="Y-axis limits (e.g. 0.0 1.0)")
+    p.add_argument("--xlabel", type=str, default="Temperature ($T$)", 
+                   help="Label for the x-axis")
+    p.add_argument("--ylabel", type=str, default=None,
+                   help="Label for the y-axis (default: metric name)")
+    p.add_argument("--title", type=str, default=None,
+                   help="Title for the plot")
+    # p.add_argument("--legend", type=str, default=None,
+    #                help="Legend for the plot (default: lattice sizes)")
+    
     args = p.parse_args()
     if not (len(args.file_path) == len(args.L) == len(args.N)):
         p.error("--file-path, --lattice-sizes and --num-spins must have the same length")
+    
+    if args.metric == "dlnm":
+        if args.energy_file is None or len(args.energy_file) != len(args.L):
+            p.error("--energy-file needed, one per lattice size, for metric dlnm")
+    
     return args
 
 if __name__ == "__main__":
@@ -240,6 +295,7 @@ if __name__ == "__main__":
     replicates = []
 
     temps = read_temperatures(args.temp_file)
+    temps = temps[1:]  # Skip the first temp (equilibration)
 
     for i, L in enumerate(args.L):
 
@@ -248,12 +304,24 @@ if __name__ == "__main__":
         df = pd.read_csv(file_path, index_col=0)
         if args.op == "simple_ann":
             input_array = simple_ann(args, df)
-        else:
+        elif args.op == "mag":
             input_array = df.abs().to_numpy()
+        else:
+            input_array = df.to_numpy()
 
-        stat = get_metric(args.metric, args.N[i], temps)
+        input_array = input_array[:, 1:]  # Skip the first temp (equilibration)
 
-        parameter, parameter_error, theta_i = block_jackknife(input_array, stat, num_bins=args.bins, return_replicates=True)
+        if args.metric == "dlnm":
+            E = pd.read_csv(args.energy_file[i], index_col=0).to_numpy()
+            E = E[:, 1:]  # Skip the first temp (equilibration)
+
+            parameter, parameter_error, theta_i = block_jackknife_dlnm(
+                input_array, E, power=args.power, num_bins=args.bins)
+        else: 
+            stat = get_metric(args.metric, args.N[i], temps)
+            
+            parameter, parameter_error, theta_i = block_jackknife(
+                input_array, stat, num_bins=args.bins, return_replicates=True)
 
         parameter_data.append(parameter)
         parameter_errors.append(parameter_error)

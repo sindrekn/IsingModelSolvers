@@ -29,5 +29,5 @@ g++ -O3 -Wall -shared -std=c++17 -fPIC \
     -o file_reader$(python3-config --extension-suffix)
 
 # To compile lattize_analytics.cpp: 
-g++ lattize_analytics.cpp -lfftw3 -o lattize_analytics
+g++ -O3 -march=native -std=c++17 analyze.cpp -o analyze -lfftw3
 

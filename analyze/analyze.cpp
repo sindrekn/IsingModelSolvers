@@ -102,21 +102,192 @@ std::vector<int> unpack_spins(const std::vector<uint64_t>& state, int num_spins)
     return spins;
 }
 
+// ---------------------------------------------------------------------------
+// Lattice neighbors
+// ---------------------------------------------------------------------------
+
+std::vector<int> neighbors_quadratic(int L) {
+    int N = L * L;
+    std::vector<int> neigh(N * 4);
+
+    for (int i = 0; i < L; i++) {
+        for (int j = 0; j < L; j++) {
+            int id = i * L + j;
+            neigh[id * 4 + 0] = ((i - 1 + L) % L) * L + j;      // up
+            neigh[id * 4 + 1] = ((i + 1) % L) * L + j;          // down
+            neigh[id * 4 + 2] = i * L + ((j - 1 + L) % L);      // left
+            neigh[id * 4 + 3] = i * L + ((j + 1) % L);          // right
+        }
+    }
+    return neigh;
+}
+
+std::vector<int> neighbors_triangular(int Lx, int Ly) {
+    if (Lx <= 0 || Ly <= 0) {
+        throw std::invalid_argument("Lattice dimensions must be positive.");
+    }
+
+    if (Lx % 2 != 0) {
+        throw std::invalid_argument("Lattice width (Lx) must be even for triangular lattice.");
+    }
+
+    if (Ly % 2 != 0) {
+        throw std::invalid_argument("Lattice height (Ly) must be even for triangular lattice.");
+    }
+
+    int N = Lx * Ly;
+    std::vector<int> neigh(N * 6);
+
+    for (int i = 0; i < Ly; i++) {
+        for (int j = 0; j < Lx; j++) {
+
+            int id = i * Lx + j;
+
+            int im = (i - 1 + Ly) % Ly;
+            int ip = (i + 1) % Ly;
+            int jm = (j - 1 + Lx) % Lx;
+            int jp = (j + 1) % Lx;
+
+            if (i % 2 == 0) {
+
+                neigh[id * 6 + 0] = im * Lx + jm;
+                neigh[id * 6 + 1] = im * Lx + j;
+                neigh[id * 6 + 2] = i  * Lx + jm;
+                neigh[id * 6 + 3] = i  * Lx + jp;
+                neigh[id * 6 + 4] = ip * Lx + jm;
+                neigh[id * 6 + 5] = ip * Lx + j;
+
+            } else {
+
+                neigh[id * 6 + 0] = im * Lx + j;
+                neigh[id * 6 + 1] = im * Lx + jp;
+                neigh[id * 6 + 2] = i  * Lx + jm;
+                neigh[id * 6 + 3] = i  * Lx + jp;
+                neigh[id * 6 + 4] = ip * Lx + j;
+                neigh[id * 6 + 5] = ip * Lx + jp;
+            }
+        }
+    }
+
+    return neigh;
+}
+
+std::vector<int> neighbors_honeycomb(int Lx, int Ly) {
+    if (Lx <= 0 || Ly <= 0) {
+        throw std::invalid_argument("Lattice dimensions must be positive.");
+    }
+
+    if (Lx % 2 != 0) {
+        throw std::invalid_argument("Lattice width (Lx) must be even for honeycomb lattice.");
+    }
+
+    if (Ly % 2 != 0) {
+        throw std::invalid_argument("Lattice height (Ly) must be even for honeycomb lattice.");
+    }
+
+    int N = Lx * Ly;
+    std::vector<int> neigh(N * 3);
+
+    for (int i = 0; i < Ly; i++) {
+        for (int j = 0; j < Lx; j++) {
+
+            int id = i * Lx + j;
+
+            int im = (i - 1 + Ly) % Ly;
+            int ip = (i + 1) % Ly;
+            int jm = (j - 1 + Lx) % Lx;
+            int jp = (j + 1) % Lx;
+
+            if ((i + j) % 2 == 0) {
+                neigh[id * 3 + 0] = im * Lx + j; // up
+                neigh[id * 3 + 1] = i * Lx + jp; // right
+                neigh[id * 3 + 2] = ip * Lx + j; // down
+            } else {
+                neigh[id * 3 + 0] = im * Lx + j; // up
+                neigh[id * 3 + 1] = i * Lx + jm; // left
+                neigh[id * 3 + 2] = ip * Lx + j; // down
+            }
+        }
+    }
+
+    return neigh;
+}
+
+std::vector<int> neighbors_cubic(int L) {
+    int N = L * L * L;
+    std::vector<int> neigh(N * 6);
+
+    for (int i = 0; i < L; i++) {
+        for (int j = 0; j < L; j++) {
+            for (int k = 0; k < L; k++) {
+                int id = i * L * L + j * L + k;
+                neigh[id * 6 + 0] = ((i - 1 + L) % L) * L * L + j * L + k; // -i
+                neigh[id * 6 + 1] = ((i + 1) % L) * L * L + j * L + k;     // +i
+                neigh[id * 6 + 2] = i * L * L + ((j - 1 + L) % L) * L + k; // -j
+                neigh[id * 6 + 3] = i * L * L + ((j + 1) % L) * L + k;     // +j
+                neigh[id * 6 + 4] = i * L * L + j * L + ((k - 1 + L) % L); // -k
+                neigh[id * 6 + 5] = i * L * L + j * L + ((k + 1) % L);     // +k
+            }
+        }
+    }
+    return neigh;
+}
+
+// ---------------------------------------------------------------------------
+// Magnetization and energy calculations
+// ---------------------------------------------------------------------------
+
 double magnetization(const std::vector<int>& spins) {
     double sum = 0.0;
     for (int s : spins) sum += s;
     return sum / static_cast<double>(spins.size());
 }
 
+struct LatticeNN {
+    int dim; 
+    int z; 
+    std::vector<int> neighbors;
+};
 
-struct EnergyAnalyzer {
+LatticeNN makeNN(const std::string& lattice_type, int L) {
+    if (lattice_type == "quadratic") {
+        return {2, 4, neighbors_quadratic(L)};
+    } else if (lattice_type == "triangular") {
+        return {2, 6, neighbors_triangular(L, L)};
+    } else if (lattice_type == "honeycomb") {
+        return {2, 3, neighbors_honeycomb(L, L)};
+    } else if (lattice_type == "cubic") {
+        return {3, 6, neighbors_cubic(L)};
+    } else {
+        throw std::invalid_argument("Unsupported lattice type: " + lattice_type);
+    }
+}
+
+class EnergyNN {
+    public: 
+        EnergyNN(const LatticeNN& lattice, double J) : lattice_(lattice), J_(J) {}
+        double energy(const std::vector<int>& spins) const {
+            long long acc = 0;
+            const int z = lattice_.z;
+            const int N = static_cast<int>(spins.size());
+            for (int i = 0; i < N; ++i)
+                for (int n = 0; n < z; ++n)
+                    acc += spins[i] * spins[lattice_.neighbors[i * z + n]];
+            return -0.5 * J_ * static_cast<double>(acc);   // each bond seen twice
+        }
+    private:
+        const LatticeNN& lattice_;
+        double J_;
+};
+
+struct EnergyLRIM {
     int L, N, Nk;
     std::vector<double> Khat;            // FFT of kernel, size L*(L/2+1)
     double* real_buf;                    // L*L
     fftw_complex* cplx_buf;              // L*(L/2+1)
     fftw_plan fwd, inv;
 
-    EnergyAnalyzer(int L_, double sigma) : L(L_), N(L_*L_), Nk(L_*(L_/2 + 1)) {
+    EnergyLRIM(int L_, double sigma) : L(L_), N(L_*L_), Nk(L_*(L_/2 + 1)) {
         real_buf = fftw_alloc_real(N);
         cplx_buf = fftw_alloc_complex(Nk);
         fwd = fftw_plan_dft_r2c_2d(L, L, real_buf, cplx_buf, FFTW_MEASURE);
@@ -133,7 +304,7 @@ struct EnergyAnalyzer {
                 int dy = (y >= L/2) ? y - L : y;
                 double v = std::pow(double(dx*dx + dy*dy), -(2.0 + sigma) / 2.0);
                 K[y*L + x] = v;
-                sum -= v;
+                sum += v;
             }
         for (double& v : K) v *= 4.0 / sum;
 
@@ -143,7 +314,7 @@ struct EnergyAnalyzer {
         for (int q = 0; q < Nk; ++q) Khat[q] = cplx_buf[q][0];  // real, since K is symmetric
     }
 
-    ~EnergyAnalyzer() {
+    ~EnergyLRIM() {
         fftw_destroy_plan(fwd); fftw_destroy_plan(inv);
         fftw_free(real_buf);    fftw_free(cplx_buf);
     }
@@ -196,11 +367,24 @@ std::vector<double> return_mag(const std::string& filepath, int num_spins) {
     return m;
 }
 
+std::vector<double> return_energyNN(const std::string& filepath, int num_spins, std::string lattice_type, double J=1.0) {
+    SnapshotReader reader(filepath, num_spins);
+    int L = static_cast<int>(std::sqrt(num_spins));
+    LatticeNN lattice = makeNN(lattice_type, L);
+    EnergyNN analyzer(lattice, J);
+    std::vector<double> e;
+
+    while (auto state = reader.next()) {
+        auto spins = unpack_spins(*state, num_spins);
+        e.push_back(analyzer.energy(spins));
+    }
+    return e;
+}
 
 std::vector<double> return_energyLRIM(const std::string& filepath, int num_spins, double sigma) {
     SnapshotReader reader(filepath, num_spins);
     int L = static_cast<int>(std::sqrt(num_spins));
-    EnergyAnalyzer analyzer(L, sigma);
+    EnergyLRIM analyzer(L, sigma);
     std::vector<double> e;
 
     while (auto state = reader.next()) {
@@ -276,6 +460,8 @@ std::vector<double> return_regmag(
 
 struct Args {
     std::string order_parameter;
+    std::string lattice_type;
+    double J = 1.0;
     int N;
     int L;
     int num_temps = 0;
@@ -319,43 +505,45 @@ void write_csv(const std::string& save_path, const std::vector<std::vector<doubl
 }
 
 template <typename Observable>
-void save_observable(const Args& args, const std::string& dir_path,
-                     const std::string& save_path, Observable&& obs) {
+void save_observable(const Args& args, Observable&& obs) {
     std::vector<std::vector<double>> columns(args.num_temps);
     for (int temp = 0; temp < args.num_temps; ++temp) {
         for (int run = 0; run < args.num_runs; ++run) {
-            const std::string filename = dir_path + "/temp_" + std::to_string(temp) +
+            const std::string filename = args.dir_path + "/temp_" + std::to_string(temp) +
                                          "/Snapshots_" + std::to_string(run) + ".dat";
             std::vector<double> v = obs(filename);
             columns[temp].insert(columns[temp].end(), v.begin(), v.end());
         }
     }
-    write_csv(save_path, columns);
+    write_csv(args.save_path, columns);
 }
 
-void save_magnetization(const Args& args, const std::string& dir_path,
-                        const std::string& save_path, int num_spins) {
-    save_observable(args, dir_path, save_path, [&](const std::string& f) {
-        return return_mag(f, num_spins);
+void save_magnetization(const Args& args) {
+    save_observable(args, [&](const std::string& f) {
+        return return_mag(f, args.N);
     });
 }
 
-void save_energyLR(const Args& args, const std::string& dir_path,
-                   const std::string& save_path, int num_spins, double sigma) {
-    save_observable(args, dir_path, save_path, [&](const std::string& f) {
-        return return_energyLRIM(f, num_spins, sigma);
+void save_energyNN(const Args& args) {
+    save_observable(args, [&](const std::string& f) {
+        return return_energyNN(f, args.N, args.lattice_type, args.J);
     });
 }
 
-void save_regmag(const Args& args, const std::string& dir_path,
-                 const std::string& save_path, int num_spins, int A) {
-    if (num_spins % (A * A) != 0) {
-        throw std::invalid_argument("num_spins (" + std::to_string(num_spins) +
-                                    ") must be divisible by A^2 (" + std::to_string(A * A) +
+void save_energyLRIM(const Args& args) {
+    save_observable(args, [&](const std::string& f) {
+        return return_energyLRIM(f, args.N, args.sigma);
+    });
+}
+
+void save_regmag(const Args& args) {
+    if (args.N % (args.A * args.A) != 0) {
+        throw std::invalid_argument("num_spins (" + std::to_string(args.N) +
+                                    ") must be divisible by A^2 (" + std::to_string(args.A * args.A) +
                                     ") for regmag calculation.");
     }
-    save_observable(args, dir_path, save_path, [&](const std::string& f) {
-        return return_regmag(f, num_spins, A, args.v0, args.w, args.b);
+    save_observable(args, [&](const std::string& f) {
+        return return_regmag(f, args.N, args.A, args.v0, args.w, args.b);
     });
 }
 
@@ -366,7 +554,7 @@ void save_regmag(const Args& args, const std::string& dir_path,
 static void print_usage(const char* prog) {
     std::cerr
         << "Usage: " << prog << " -op <magnetization|energyLRIM|regmag> -N <sizes...> -I <solver> -t <num_temps> -r <num_runs>\n"
-        << "         [-si <sigma_index>] [-A <region sizes...>] [-v0 <x>] [-w <x>] [-b <x>] [--base-root <dir>]\n";
+        << "         [-ltype <lattice_type>] [-J <coupling>] [-si <sigma_index>] [-A <region sizes...>] [-v0 <x>] [-w <x>] [-b <x>] [--base-root <dir>]\n";
 }
 
 static bool is_flag(const std::string& s) {
@@ -391,6 +579,8 @@ Args parse_args(int argc, char** argv) {
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         if (a == "-op" || a == "--order-parameter") { args.order_parameter = need_value(i); have_op = true; }
+        else if (a == "-ltype" || a == "--lattice-type") { args.lattice_type = need_value(i); }
+        else if (a == "-J" || a == "--coupling") { args.J = std::stod(need_value(i)); }
         else if (a == "-L" || a == "--lattice-size") { args.L = std::stoi(need_value(i)); have_L = true; }
         else if (a == "-N" || a == "--num-spins") { args.N = std::stoi(need_value(i)); have_N = true; }
         else if (a == "-t" || a == "--num-temps") { args.num_temps = std::stoi(need_value(i)); have_t = true; }
@@ -427,16 +617,18 @@ int main(int argc, char** argv) {
     try {
         if (args.order_parameter == "energyLRIM") {
             if (args.sigma <= 0) {
-                throw std::invalid_argument("energyLR needs sigma > 0, but got sigma=" + std::to_string(args.sigma));
+                throw std::invalid_argument("energyLRIM needs sigma > 0, but got sigma=" + std::to_string(args.sigma));
             }
-            save_energyLR(args, args.dir_path, args.save_path, args.N, args.sigma);
+            save_energyLRIM(args);
+        } else if (args.order_parameter == "energyNN") {
+            save_energyNN(args);
         } else if (args.order_parameter == "magnetization") {
-            save_magnetization(args, args.dir_path, args.save_path, args.N);
+            save_magnetization(args);
         } else if (args.order_parameter == "regmag") {
             if (args.A <= 0) {
                 throw std::invalid_argument("regmag needs A > 0, but got A=" + std::to_string(args.A));
             }
-            save_regmag(args, args.dir_path, args.save_path, args.N, args.A);
+            save_regmag(args);
         } else {
             throw std::invalid_argument("Unknown order parameter: " + args.order_parameter);
         }
