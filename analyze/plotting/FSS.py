@@ -49,7 +49,6 @@ from collections import namedtuple
 import numpy as np
 import numpy.ma as ma
 import scipy.optimize
-import matplotlib.pyplot as plt
 
 class ScaledData(namedtuple('ScaledData', ['x', 'y', 'dy'])):
     """

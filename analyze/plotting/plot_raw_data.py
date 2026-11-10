@@ -328,7 +328,7 @@ if __name__ == "__main__":
         replicates.append(theta_i)
 
     if args.metric == "binder" and args.cw is not None:
-        Ts, dTs = [], []
+        Ts, dTs, Lpairs = [], [], []
         for i, j in itertools.combinations(range(len(args.L)), 2):
             Tx, dTx = jackknife_crossing(
                 temps, parameter_data[i], replicates[i],
@@ -336,11 +336,23 @@ if __name__ == "__main__":
                 args.cw, args.cd,
             )
             Ts.append(Tx); dTs.append(dTx)
+            Lpairs.append((args.L[i], args.L[j]))
             print(f"L=({args.L[i]}, {args.L[j]}):  T* = {Tx:.5f} +- {dTx:.5f}")
 
         Ts, dTs = np.array(Ts), np.array(dTs)
+        Lmin_pair = np.array([min(p) for p in Lpairs])
         ok = np.isfinite(Ts) & np.isfinite(dTs) & (dTs > 0)
+
         if ok.any():
+            for Lmin in sorted(args.L, reverse=True):
+                sel = ok & (Lmin_pair >= Lmin)
+                if not sel.any():
+                    continue  # largest L alone has no partner
+                w = 1 / dTs[sel]**2
+                Tmean = np.sum(w * Ts[sel]) / w.sum()
+                Terr = 1 / np.sqrt(w.sum())
+                print(f"Lmin={Lmin}: n_pairs={sel.sum()}  T* = {Tmean:.5f} +- {Terr:.5f}")
+
             w = 1 / dTs[ok]**2
             Tmean = np.sum(w * Ts[ok]) / w.sum()
             Terr = 1 / np.sqrt(w.sum())
