@@ -64,6 +64,38 @@ def block_jackknife_dlnm(m, E, power=1, num_bins=20, sign=-1):
     err = np.sqrt((num_bins - 1) * np.var(theta_i, axis=0, ddof=0))
     return theta, err, theta_i
 
+def block_jackknife_dU(m, E, power=1, num_bins=20):
+    """
+    d U_i/dbeta = 2 <|m|^i> <|m|^i E> / (3 <|m|^i>^3) - (<|m|^{2i} E> - <|m|^{2i}> <E>) / (3 <|m|^i>^2)
+
+    m, E: (n_samples, n_T) arrays (E = total energy)
+    sign = -1 for Boltzmann weight exp(-beta*E); use +1 if your E
+    is defined with the opposite sign (weight exp(+K*E)).
+    Same block-jackknife scheme as block_jackknife.
+
+    LLM-assisted
+    ------------
+    Tool: Claude (October 2026)
+    Role: Generated the block_jackknife_dlnm function for computing
+    the derivative of the logarithm of the magnetization with respect to beta.
+    """
+    n = (m.shape[0] // num_bins) * num_bins
+    b = n // num_bins
+    mi = np.abs(m[:n]) ** power
+    E = E[:n]
+
+    def binsum(a):
+        return a.reshape(num_bins, b, -1).sum(axis=1)
+
+    S = {"m": binsum(mi), "mE": binsum(mi * E), "E": binsum(E), "m2": binsum(mi**2), "m2E": binsum(mi**2 * E)}
+    full = {k: v.sum(axis=0) / n for k, v in S.items()}
+    loo  = {k: (v.sum(axis=0) - v) / (n - b) for k, v in S.items()}
+
+    stat = lambda M: 2 * M["m2"] * (M["m"]*M["E"] - M["mE"]) / (3*M["m"]**3) + (M["m2E"] - M["m2"]*M["E"]) / (3*M["m"]**2)
+    theta, theta_i = stat(full), stat(loo)
+    err = np.sqrt((num_bins - 1) * np.var(theta_i, axis=0, ddof=0))
+    return theta, err, theta_i
+
 def crossing_point(T, U1, U2, window, deg=3):
     """
     Crossing of two curves: polynomial fit in window, then roots of the difference.

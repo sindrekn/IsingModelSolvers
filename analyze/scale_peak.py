@@ -2,6 +2,7 @@
 # encoding: utf-8
 
 import numpy as np
+import pandas as pd
 import scipy.optimize
 from dataclasses import dataclass
 from scipy.special import logsumexp
@@ -95,7 +96,7 @@ def _wham_energy(H_E, E, beta, logZ0=None, max_iterations=1000, tol=1e-6):
     
     Returns:
     - logZ: Logarithm of the partition function for each temperature
-    - D(E): Logarithm of the density of states for each energy bin
+    - D(E): Logarithm of the denominator of the density of states for each energy bin
     - log H_tot(E): Logarithm of the total histogram for each energy bin
 
     LLM-assisted
@@ -170,8 +171,73 @@ def calculate_dlnm_peak(H, E_bins, M_bins, temps, N, n_eval=1000, i=1,
     out = (T_eval[k], dlnm[k])
     return (*out, logZ) if return_logZ else out
 
+def calculate_dU_peak(H, E_bins, M_bins, temps, N, n_eval=1000, i=2,
+                        logZ0=None, return_logZ=False):
+    """
+    Calculate the peak of the derivative of the logarithm of the magnetization 
+    with respect to beta.
+
+    Parameters:
+    - H: 3D array of histograms (n_temps, n_E_bins, n_M_bins)
+    - E_bins: 1D array of energy bin edges
+    - M_bins: 1D array of magnetization bin edges
+    - temps: 1D array of temperatures
+    - N: System size (number of spins)
+    - n_eval: Number of evaluation points for reweighting
+    - i: order of the derivative (default is 1 for first derivative)
+    - logZ0: initial guess for the partition function (if None, use zeros)
+    - return_logZ: if True, also return the logarithm of the partition function
+
+    Returns:
+    - T_eval[k]: Temperature at which the peak occurs
+    - dU[k]: Value of the peak
+    - logZ (optional): Logarithm of the partition function for each temperature
+    """
+    beta = 1.0 / temps
+    E_c = 0.5 * (E_bins[:-1] + E_bins[1:])
+    m_c = 0.5 * (M_bins[:-1] + M_bins[1:]) / N
+ 
+    H_tot = H.sum(axis=0)
+    valid = H_tot.sum(axis=1) > 0
+    E = E_c[valid]
+    H_tot = H_tot[valid]
+ 
+    logZ, D, _ = _wham_energy(H[:, valid].sum(axis=2), E, beta, logZ0)
+
+    H_E = H_tot.sum(axis=1)
+    logA = np.log(H_tot.sum(axis=1)) - D
+
+    m_i_E = (H_tot @ m_c**i) / H_E
+    m_2i_E = (H_tot @ m_c**(2*i)) / H_E
+ 
+    T_eval = np.linspace(temps.min(), temps.max(), n_eval)
+    be = (1.0 / T_eval)[:, None]
+    lw = logA[None, :] - be * E[None, :]
+    lw -= lw.max(axis=1, keepdims=True)
+    w = np.exp(lw)
+
+    def mean(X):
+        return (w @ X) / w.sum(axis=1)
+
+    m = mean(m_i_E)
+    m2 = mean(m_2i_E)
+
+    me = mean(m_i_E * E)
+    m2e = mean(m_2i_E * E)
+
+    e = mean(E)
+
+    dm = m * e - me
+    dm2 = m2 * e - m2e
+
+    dU = 2*m2*dm / (3*m**3) - dm2 / (3*m**2) 
+    
+    k = np.argmax(dU)
+    out = (T_eval[k], dU[k])
+    return (*out, logZ) if return_logZ else out
+
 def jackknife_multi_histogram(func, E, m, temps, N, num_bins=50, block_size=100,
-                              n_eval=1000, i=1, verbose=False):
+                              n_eval=1000, i=1):
     """
     Perform a jackknife resampling on a multi-histogram dataset.
 
@@ -195,49 +261,52 @@ def jackknife_multi_histogram(func, E, m, temps, N, num_bins=50, block_size=100,
     """
     M = np.abs(m * N)
     n_samples, n_temps = E.shape
+    if n_samples % block_size != 0:
+        raise ValueError(
+            f"n_samples {n_samples} must be divisible by block_size {block_size}."
+        )
+    
     n_blocks = n_samples // block_size
     if n_blocks < 2:
         raise ValueError("Not enough samples for jackknife resampling.")
-    nb = num_bins
  
-    E_bins = np.linspace(E.min(), E.max(), nb + 1)
-    M_bins = np.linspace(M.min(), M.max(), nb + 1)
+    E_bins = np.linspace(E.min(), E.max(), num_bins + 1)
+    M_bins = np.linspace(M.min(), M.max(), num_bins + 1)
 
-    iE = np.clip(np.digitize(E, E_bins) - 1, 0, nb - 1)
-    iM = np.clip(np.digitize(M, M_bins) - 1, 0, nb - 1)
+    iE = np.clip(np.digitize(E, E_bins) - 1, 0, num_bins - 1)
+    iM = np.clip(np.digitize(M, M_bins) - 1, 0, num_bins - 1)
  
     t = np.arange(n_temps)[None, :]
-    H = np.bincount(((t * nb + iE) * nb + iM).ravel(),
-                    minlength=n_temps * nb * nb).reshape(n_temps, nb, nb)
- 
+    flat = (t * num_bins + iE) * num_bins + iM
+
+    H = np.bincount(flat.ravel(), minlength=n_temps * num_bins * num_bins
+                    ).reshape(n_temps, num_bins, num_bins)
+
     peak_T, peak_value, logZ_full = func(H, E_bins, M_bins, temps, N,
                                          n_eval=n_eval, i=i, return_logZ=True)
- 
-    n_used = n_blocks * block_size
-    blk = np.arange(n_used) // block_size
-    jk_T = np.zeros((n_temps, n_blocks))
-    jk_peak = np.zeros((n_temps, n_blocks))
- 
-    for r in range(n_temps):
-        if verbose:
-            print(f"{r+1} of {n_temps} temperatures")
 
-        flat = (blk * nb + iE[:n_used, r]) * nb + iM[:n_used, r]
-        Hb = np.bincount(flat, minlength=n_blocks * nb * nb).reshape(n_blocks, nb, nb)
-        H_r = H[r].copy()
-        for b in range(n_blocks):
-            H[r] = H_r - Hb[b]
-            jk_T[r, b], jk_peak[r, b] = func(H, E_bins, M_bins, temps, N,
-                                             n_eval=n_eval, i=i, logZ0=logZ_full)
-        H[r] = H_r
+    n_used = n_blocks * block_size
+    blk = np.arange(n_samples) // block_size
+    flat_blocks = (((blk[:, None] * n_temps + t) * num_bins + iE) * num_bins + iM)
+
+    Hb = np.bincount(flat_blocks.ravel(), minlength=n_blocks * n_temps * num_bins**2
+                    ).reshape(n_blocks, n_temps, num_bins, num_bins)
+
+    jk_T = np.zeros(n_blocks)
+    jk_peak = np.zeros(n_blocks)
+
+    for b in range(n_blocks):
+        H_jack = H - Hb[b]
+        jk_T[b], jk_peak[b] = func(H_jack, E_bins, M_bins, temps, N, n_eval=n_eval, i=i)
  
     f = (n_blocks - 1) / n_blocks
-    T_err = np.sqrt(f * np.sum((jk_T - jk_T.mean(axis=1, keepdims=True))**2))
-    peak_err = np.sqrt(f * np.sum((jk_peak - jk_peak.mean(axis=1, keepdims=True))**2))
+    T_err = np.sqrt(f * np.sum((jk_T - jk_T.mean())**2))
+    peak_err = np.sqrt(f * np.sum((jk_peak - jk_peak.mean())**2))
+
     return peak_T, peak_value, T_err, peak_err
 
 # ----------------------------------------------------------------------------
-# Callable functions for density of states and reweighting
+# Functions for density of states and reweighting
 # ----------------------------------------------------------------------------
 
 def density_of_states(H, E_bins, M_bins, temps, max_iterations=1000, tol=1e-6,
@@ -282,7 +351,6 @@ def density_of_states(H, E_bins, M_bins, temps, max_iterations=1000, tol=1e-6,
     logg = np.log(H_tot[valid]) - D_full[iE]
     return logZ, logg, E_c[iE], M_c[iM]
 
-
 def compute_reweighted_observables(observable, E_valid, logg, beta_eval):
     """
     Compute reweighted observables using the density of states and partition functions.
@@ -306,8 +374,19 @@ def compute_reweighted_observables(observable, E_valid, logg, beta_eval):
 
 def peak_model(n_corr=1, x0=1.0, nu=1.0, a0=0.1, w0=1.0):
     """
+    Create a scaling model for the peak of a quantity as a function of 
+    system size L.
     X_max(L) = x0 L^(1/nu) * (1 + sum_{i=1..n_corr} a_i L^(-w_i))
-    n_corr=0 gives the pure power law.
+    
+    Parameters:
+    - n_corr: Number of correction terms to include in the model
+    - x0: Initial guess for the amplitude
+    - nu: Initial guess for the critical exponent
+    - a0: Initial guess for the amplitude of the correction terms
+    - w0: Initial guess for the exponent of the correction terms
+
+    Returns:
+    - ScalingModel: A scaling model object containing the function and parameters
     """
 
     params = [Param("x0", x0), Param("nu", nu, (1e-3, None))]
@@ -328,6 +407,14 @@ def guess_power_law(L, X):
     """ 
     Initial guess for a power law fit of the form X(L) = x0 L^(1/nu)
     We use a linear fit of log(X) vs log(L) to get the initial guess for x0 and nu.
+
+    Parameters:
+    - L: Array of system sizes
+    - X: Array of peak values corresponding to the system sizes
+
+    Returns:
+    - x0: Initial guess for the amplitude
+    - nu: Initial guess for the critical exponent
     """
     coeffs = np.polyfit(np.log(L), np.log(np.abs(X)), 1)
     return np.exp(coeffs[1]) * np.sign(X[0]), 1 / coeffs[0]
@@ -335,6 +422,25 @@ def guess_power_law(L, X):
 def fit_scaling(L, X , dX, model, fixed=None, method="least_squares", options=None):
     """
     Weighted fit of X(L) to 'model'
+
+    Parameters:
+    - L: Array of system sizes
+    - X: Array of peak values corresponding to the system sizes
+    - dX: Array of errors corresponding to the peak values
+    - model: ScalingModel object containing the function and parameters
+    - fixed: Dictionary of fixed parameters (optional)
+    - method: Optimization method to use ("least_squares" or "minimize")
+    - options: Dictionary of options to pass to the optimizer (optional)
+
+    Returns:
+    - Dictionary containing the fitted parameters, errors, covariance matrix,
+      chi-squared value, degrees of freedom, reduced chi-squared value, success flag,
+      message from the optimizer, and raw result from the optimizer.
+
+    LLM-assisted
+    ------------
+    Tool: Claude (October 2026)
+    Role: Improved the origianl fit_scaling function to handle both least squares and minimize methods
     """
     L, X, dX = np.asanyarray(L), np.asanyarray(X), np.asanyarray(dX)
     free, fixed = _split(model.params, fixed)
@@ -414,6 +520,76 @@ def block_jackknife_dlnm(m, E, power=1, num_bins=20, sign=-1):
     err = np.sqrt((num_bins - 1) * np.var(theta_i, axis=0, ddof=0))
     return theta, err, theta_i
 
+def block_jackknife_dU(m, E, power=1, num_bins=20):
+    """
+    d U_i/dbeta = 
+
+    m, E: (n_samples, n_T) arrays (E = total energy)
+    sign = -1 for Boltzmann weight exp(-beta*E); use +1 if your E
+    is defined with the opposite sign (weight exp(+K*E)).
+    Same block-jackknife scheme as block_jackknife.
+
+    LLM-assisted
+    ------------
+    Tool: Claude (October 2026)
+    Role: Generated the block_jackknife_dlnm function for computing
+    the derivative of the logarithm of the magnetization with respect to beta.
+    """
+    n = (m.shape[0] // num_bins) * num_bins
+    b = n // num_bins
+    mi = np.abs(m[:n]) ** power
+    E = E[:n]
+
+    def binsum(a):
+        return a.reshape(num_bins, b, -1).sum(axis=1)
+
+    S = {"m": binsum(mi), "mE": binsum(mi * E), "E": binsum(E), "m2": binsum(mi**2), "m2E": binsum(mi**2 * E)}
+    full = {k: v.sum(axis=0) / n for k, v in S.items()}
+    loo  = {k: (v.sum(axis=0) - v) / (n - b) for k, v in S.items()}
+
+    stat = lambda M: 2 * M["m2"] * (M["m"]*M["E"] - M["mE"]) / (3*M["m"]**3) + (M["m2E"] - M["m2"]*M["E"]) / (3*M["m"]**2)
+    theta, theta_i = stat(full), stat(loo)
+    err = np.sqrt((num_bins - 1) * np.var(theta_i, axis=0, ddof=0))
+    return theta, err, theta_i
+
+def estimate_peak_from_dlnm(energy_file, magnetization_file, temp_file, save_path, L):
+    """
+    Use diffrent block sizes to estimate the peak of d ln<|m|>/d beta and its error.
+
+    Parameters:
+    - energy_file: Path to the CSV file containing energy data
+    - magnetization_file: Path to the CSV file containing magnetization data
+    - temp_file: Path to the text file containing temperature data
+    - save_path: Path to save the output file
+    - L: System size (number of spins)
+    """
+    E = pd.read_csv(energy_file, index_col=0).to_numpy()[:, 1:]
+    m = pd.read_csv(magnetization_file, index_col=0).to_numpy()[:, 1:]
+    temps = read_temperatures(temp_file)
+    temps = temps[1:]
+
+    df = pd.DataFrame(columns=["block_size", "peak_T", "peak_value", "T_err", "peak_err"])
+
+    for block_size in [64, 128, 256, 512, 1024, 2048, 4096]:
+        print(f"Block size: {block_size}")
+        peak_T, peak_value, T_err, peak_err = jackknife_multi_histogram(
+            calculate_dlnm_peak, E, m, temps, L, num_bins=50, block_size=block_size, 
+            n_eval=1000, i=1
+        )
+
+        print(f"Peak temperature: {peak_T:.8f} ± {T_err:.8f}")
+        print(f"Peak value: {peak_value:.8f} ± {peak_err:.8f}")
+
+        df = df.append({
+            "block_size": block_size,
+            "peak_T": peak_T,
+            "peak_value": peak_value,
+            "T_err": T_err,
+            "peak_err": peak_err
+        }, ignore_index=True)
+
+    df.to_csv(save_path, index=False)
+
 if __name__ == "__main__":
     import pandas as pd
     L = 256
@@ -431,17 +607,19 @@ if __name__ == "__main__":
     temps = read_temperatures(temp)
     temps = temps[1:]
 
-    # for block_size in [50, 100, 200, 400, 800]:
-    #     print(f"Block size: {block_size}")
-    #     peak_T, peak_value, T_err, peak_err = jackknife_multi_histogram(
-    #         calculate_dlnm_peak, E, m, temps, L, num_bins=50, block_size=block_size, 
-    #         n_eval=1000, i=1
-    #     )
+    # for block_size in [64, 128, 256, 512, 1024, 2048, 4096]:
+    block_size = 512
+    print(f"Block size: {block_size}")
+    peak_T, peak_value, T_err, peak_err = jackknife_multi_histogram(
+        calculate_dU_peak, E, m, temps, L, num_bins=50, block_size=block_size, 
+        n_eval=1000, i=1
+    )
 
-    #     print(f"Peak temperature: {peak_T:.8f} ± {T_err:.8f}")
-    #     print(f"Peak value: {peak_value:.8f} ± {peak_err:.8f}")
+    print(f"Peak temperature: {peak_T:.8f} ± {T_err:.8f}")
+    print(f"Peak value: {peak_value:.8f} ± {peak_err:.8f}")
 
-    dlnm, dlnm_error, dlnm_replicates = block_jackknife_dlnm(m, E, power=1, num_bins=20)
+    # dlnm, dlnm_error, dlnm_replicates = block_jackknife_dlnm(m, E, power=1, num_bins=20)
+    dU, dU_error, dU_replicates = block_jackknife_dU(m, E, power=1, num_bins=20)
 
     M = np.abs(m * L)
     n_samples, n_temps = E.shape
@@ -466,26 +644,38 @@ if __name__ == "__main__":
     T_eval = np.linspace(temps.min(), temps.max(), 1000)
     beta_eval = 1.0 / T_eval
 
-    e_reweighted = compute_reweighted_observables(E_valid, E_valid, logg, beta_eval)
-    m_reweighted = compute_reweighted_observables(m_valid, E_valid, logg, beta_eval)
-    me_reweighted = compute_reweighted_observables(E_valid * m_valid, E_valid, logg, beta_eval)
+    m2e = compute_reweighted_observables(m_valid**2 * E_valid, E_valid, logg, beta_eval)
+    me = compute_reweighted_observables(m_valid * E_valid, E_valid, logg, beta_eval)
+    m2 = compute_reweighted_observables(m_valid**2, E_valid, logg, beta_eval)
+    m = compute_reweighted_observables(m_valid, E_valid, logg, beta_eval)
+    e = compute_reweighted_observables(E_valid, E_valid, logg, beta_eval)
+
+    dm = m*e - me
+    dm2 = m2*e - m2e
+
+    dU_reweighted = 2*m2*dm / (3*m**3) - dm2 / (3*m**2) 
+
+    # e_reweighted = compute_reweighted_observables(E_valid, E_valid, logg, beta_eval)
+    # m_reweighted = compute_reweighted_observables(m_valid, E_valid, logg, beta_eval)
+    # me_reweighted = compute_reweighted_observables(E_valid * m_valid, E_valid, logg, beta_eval)
     
-    dlnm_reweighted = e_reweighted - me_reweighted / m_reweighted
+    # dlnm_reweighted = e_reweighted - me_reweighted / m_reweighted
 
     import matplotlib.pyplot as plt
     plt.figure(figsize=(8, 6))
+    print(temps.shape, dU.shape, dU_error.shape)
 
     plt.errorbar(
         temps, 
-        dlnm, 
-        yerr=dlnm_error, 
+        dU, 
+        yerr=dU_error, 
         label="Original", 
         fmt="o"
     )
 
     plt.plot(
         T_eval, 
-        dlnm_reweighted,
+        dU_reweighted,
         '-', 
         label="Reweighted"
     )
