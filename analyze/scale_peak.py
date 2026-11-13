@@ -104,14 +104,14 @@ def _wham_energy(H_E, E, beta, logZ0=None, max_iterations=1000, tol=1e-6):
 # ----------------------------------------------------------------------------
 # Histogram reweighting using WHAM and jackknife resampling
 # ----------------------------------------------------------------------------
- 
-def calculate_dlnm(H, E_bins, M_bins, temps, N, n_eval=1000, i=1,
+
+def multi_histogram_reweight(quantity, H, E_bins, M_bins, temps, N, n_eval=1000, i=1,
                         logZ0=None, return_logZ=False):
     """
-    Calculate the peak of the derivative of the logarithm of the magnetization 
-    with respect to beta.
+    Estimate the curve of a Blotzman distribution using multi-histogram reweighting.
 
     Parameters:
+    - quantity: The physical quantity to estimate (e.g., "suc", "dlnm", "dU")
     - H: 3D array of histograms (n_temps, n_E_bins, n_M_bins)
     - E_bins: 1D array of energy bin edges
     - M_bins: 1D array of magnetization bin edges
@@ -124,7 +124,7 @@ def calculate_dlnm(H, E_bins, M_bins, temps, N, n_eval=1000, i=1,
 
     Returns:
     - T_eval: Evaluation temperatures
-    - dlnm: The derivative of the logarithm of the magnetization with respect to beta
+    - data: The estimated physical quantity
     - logZ (optional): Logarithm of the partition function for each temperature
     """
     beta = 1.0 / temps
@@ -137,93 +137,83 @@ def calculate_dlnm(H, E_bins, M_bins, temps, N, n_eval=1000, i=1,
     H_tot = H_tot[valid]
  
     logZ, D, _ = _wham_energy(H[:, valid].sum(axis=2), E, beta, logZ0)
- 
-    logA0 = np.log(H_tot.sum(axis=1)) - D
-    logA1 = np.log(H_tot @ m_c**i) - D
- 
-    T_eval = np.linspace(temps.min(), temps.max(), n_eval)
-    be = (1.0 / T_eval)[:, None]
- 
-    def mean_E(logA):
+
+    if quantity == "suc":
+        H_E = H_tot.sum(axis=1)
+        logA = np.log(H_tot.sum(axis=1)) - D
+
+        m_E = (H_tot @ m_c) / H_E
+        m2_E = (H_tot @ m_c**2) / H_E
+    
+        T_eval = np.linspace(temps.min(), temps.max(), n_eval)
+        be = (1.0 / T_eval)[:, None]
         lw = logA[None, :] - be * E[None, :]
         lw -= lw.max(axis=1, keepdims=True)
         w = np.exp(lw)
-        return (w @ E) / w.sum(axis=1)
- 
-    dlnm = mean_E(logA0) - mean_E(logA1)
-    out = (T_eval, dlnm)
+
+        def mean(X):
+            return (w @ X) / w.sum(axis=1)
+
+        m = mean(m_E)
+        m2 = mean(m2_E)
+
+        data = (m2 - m**2) * N / T_eval
+
+    elif quantity == "dlnm":
+        logA0 = np.log(H_tot.sum(axis=1)) - D
+        logA1 = np.log(H_tot @ m_c**i) - D
+    
+        T_eval = np.linspace(temps.min(), temps.max(), n_eval)
+        be = (1.0 / T_eval)[:, None]
+    
+        def mean_E(logA):
+            lw = logA[None, :] - be * E[None, :]
+            lw -= lw.max(axis=1, keepdims=True)
+            w = np.exp(lw)
+            return (w @ E) / w.sum(axis=1)
+    
+        data = mean_E(logA0) - mean_E(logA1)
+
+    elif quantity == "dU": 
+        H_E = H_tot.sum(axis=1)
+        logA = np.log(H_tot.sum(axis=1)) - D
+
+        m_i_E = (H_tot @ m_c**i) / H_E
+        m_2i_E = (H_tot @ m_c**(2*i)) / H_E
+    
+        T_eval = np.linspace(temps.min(), temps.max(), n_eval)
+        be = (1.0 / T_eval)[:, None]
+        lw = logA[None, :] - be * E[None, :]
+        lw -= lw.max(axis=1, keepdims=True)
+        w = np.exp(lw)
+
+        def mean(X):
+            return (w @ X) / w.sum(axis=1)
+
+        m = mean(m_i_E)
+        m2 = mean(m_2i_E)
+
+        me = mean(m_i_E * E)
+        m2e = mean(m_2i_E * E)
+
+        e = mean(E)
+
+        dm = m * e - me
+        dm2 = m2 * e - m2e
+
+        data = 2*m2*dm / (3*m**3) - dm2 / (3*m**2) 
+
+    out = (T_eval, data)
     return (*out, logZ) if return_logZ else out
 
-def calculate_dU(H, E_bins, M_bins, temps, N, n_eval=1000, i=2,
-                        logZ0=None, return_logZ=False):
-    """
-    Calculate the peak of the derivative of the logarithm of the magnetization 
-    with respect to beta.
 
-    Parameters:
-    - H: 3D array of histograms (n_temps, n_E_bins, n_M_bins)
-    - E_bins: 1D array of energy bin edges
-    - M_bins: 1D array of magnetization bin edges
-    - temps: 1D array of temperatures
-    - N: System size (number of spins)
-    - n_eval: Number of evaluation points for reweighting
-    - i: order of the derivative (default is 1 for first derivative)
-    - logZ0: initial guess for the partition function (if None, use zeros)
-    - return_logZ: if True, also return the logarithm of the partition function
-
-    Returns:
-    - T_eval[k]: Evaluation temperatures
-    - dU[k]: The derivative of Binder cumulant with respect to beta
-    - logZ (optional): Logarithm of the partition function for each temperature
-    """
-    beta = 1.0 / temps
-    E_c = 0.5 * (E_bins[:-1] + E_bins[1:])
-    m_c = 0.5 * (M_bins[:-1] + M_bins[1:]) / N
- 
-    H_tot = H.sum(axis=0)
-    valid = H_tot.sum(axis=1) > 0
-    E = E_c[valid]
-    H_tot = H_tot[valid]
- 
-    logZ, D, _ = _wham_energy(H[:, valid].sum(axis=2), E, beta, logZ0)
-
-    H_E = H_tot.sum(axis=1)
-    logA = np.log(H_tot.sum(axis=1)) - D
-
-    m_i_E = (H_tot @ m_c**i) / H_E
-    m_2i_E = (H_tot @ m_c**(2*i)) / H_E
- 
-    T_eval = np.linspace(temps.min(), temps.max(), n_eval)
-    be = (1.0 / T_eval)[:, None]
-    lw = logA[None, :] - be * E[None, :]
-    lw -= lw.max(axis=1, keepdims=True)
-    w = np.exp(lw)
-
-    def mean(X):
-        return (w @ X) / w.sum(axis=1)
-
-    m = mean(m_i_E)
-    m2 = mean(m_2i_E)
-
-    me = mean(m_i_E * E)
-    m2e = mean(m_2i_E * E)
-
-    e = mean(E)
-
-    dm = m * e - me
-    dm2 = m2 * e - m2e
-
-    dU = 2*m2*dm / (3*m**3) - dm2 / (3*m**2) 
-    out = (T_eval, dU)
-    return (*out, logZ) if return_logZ else out
-
-def jackknife_multi_histogram(func, E, m, temps, N, num_bins=50, block_size=100,
+def jackknife_multi_histogram(quantity, E, m, temps, N, num_bins=50, block_size=100,
                               n_eval=1000, i=1):
     """
     Perform a jackknife resampling on a multi-histogram dataset.
 
     Parameters:
-    - func: Function to compute the observable of interest
+    - quantity: The physical quantity to estimate (e.g., "suc", "dlnm", "dU")
     - E: 1D array of energy values
     - m: 1D array of magnetization values
     - temps: 1D array of temperatures
@@ -263,10 +253,8 @@ def jackknife_multi_histogram(func, E, m, temps, N, num_bins=50, block_size=100,
     H = np.bincount(flat.ravel(), minlength=n_temps * num_bins * num_bins
                     ).reshape(n_temps, num_bins, num_bins)
 
-    T_eval, obs, logZ_full = func(H, E_bins, M_bins, temps, N,
-                                         n_eval=n_eval, i=i, return_logZ=True)
+    T_eval, obs = multi_histogram_reweight(quantity, H, E_bins, M_bins, temps, N, n_eval=n_eval, i=i)
 
-    n_used = n_blocks * block_size
     blk = np.arange(n_samples) // block_size
     flat_blocks = (((blk[:, None] * n_temps + t) * num_bins + iE) * num_bins + iM)
 
@@ -278,7 +266,7 @@ def jackknife_multi_histogram(func, E, m, temps, N, num_bins=50, block_size=100,
 
     for b in range(n_blocks):
         H_jack = H - Hb[b]
-        jk_T_eval[b], jk_obs[b] = func(H_jack, E_bins, M_bins, temps, N, n_eval=n_eval, i=i)
+        jk_T_eval[b], jk_obs[b] = multi_histogram_reweight(quantity, H_jack, E_bins, M_bins, temps, N, n_eval=n_eval, i=i)
     
     T_eval_error = np.zeros(n_eval)
     obs_error = np.zeros(n_eval)
@@ -294,24 +282,23 @@ def jackknife_multi_histogram(func, E, m, temps, N, num_bins=50, block_size=100,
 # Peak scaling model and fitting routines
 # ----------------------------------------------------------------------------
 
-def peak_model(n_corr=1, x0=1.0, nu=1.0, a0=0.1, w0=1.0):
+def peak_model(n_corr=1, x0=1.0, y=1.0, a0=0.1, w0=1.0):
     """
     Create a scaling model for the peak of a quantity as a function of 
     system size L.
-    X_max(L) = x0 L^(1/nu) * (1 + sum_{i=1..n_corr} a_i L^(-w_i))
+    X_max(L) = x0 L^y * (1 + sum_{i=1..n_corr} a_i L^(-w_i))
     
     Parameters:
     - n_corr: Number of correction terms to include in the model
     - x0: Initial guess for the amplitude
-    - nu: Initial guess for the critical exponent
+    - y: Initial guess for the critical exponent
     - a0: Initial guess for the amplitude of the correction terms
     - w0: Initial guess for the exponent of the correction terms
 
     Returns:
     - ScalingModel: A scaling model object containing the function and parameters
     """
-
-    params = [Param("x0", x0), Param("nu", nu, (1e-3, None))]
+    params = [Param("x0", x0), Param("y", y, (1e-3, None))]
     for i in range(1, n_corr + 1):
         params.append(Param(f"a{i}", float(a0)))
         params.append(Param(f"w{i}", float(w0), (1e-3, None)))
@@ -321,14 +308,14 @@ def peak_model(n_corr=1, x0=1.0, nu=1.0, a0=0.1, w0=1.0):
         corr = 1.0
         for i in range(1, n_corr + 1): 
             corr += p[f"a{i}"] * L**(-p[f"w{i}"])
-        return p["x0"] * L**(1/p["nu"]) * corr
+        return p["x0"] * L**(p["y"]) * corr
 
     return ScalingModel(func, params)
 
 def guess_power_law(L, X): 
     """ 
-    Initial guess for a power law fit of the form X(L) = x0 L^(1/nu)
-    We use a linear fit of log(X) vs log(L) to get the initial guess for x0 and nu.
+    Initial guess for a power law fit of the form X(L) = x0 L^y
+    We use a linear fit of log(X) vs log(L) to get the initial guess for x0 and y.
 
     Parameters:
     - L: Array of system sizes
@@ -336,10 +323,10 @@ def guess_power_law(L, X):
 
     Returns:
     - x0: Initial guess for the amplitude
-    - nu: Initial guess for the critical exponent
+    - y: Initial guess for the critical exponent
     """
     coeffs = np.polyfit(np.log(L), np.log(np.abs(X)), 1)
-    return np.exp(coeffs[1]) * np.sign(X[0]), 1 / coeffs[0]
+    return np.exp(coeffs[1]) * np.sign(X[0]), coeffs[0]
 
 def fit_scaling(L, X , dX, model, fixed=None, method="least_squares", options=None):
     """
@@ -494,8 +481,9 @@ def block_jackknife_dU(m, E, power=1, num_bins=20):
 
 if __name__ == "__main__":
     import pandas as pd
-    si=0
-    Ls = np.array([64, 128, 192, 256])
+    import matplotlib.pyplot as plt
+    si=1
+    Ls = np.array([128, 192, 256])
 
     peak_Ts = []
     peak_values = []
@@ -504,6 +492,7 @@ if __name__ == "__main__":
 
     base_path = "/home/sindrekampennesheim/Documents/PhD/IsingModel/Output/Olivia-run1"
     for L in Ls:
+        print(f"Analyzing L={L}")
         energy = base_path + f"/data/run_1/energy_lb_sigma-{si}_L{L}.csv"
         temp = base_path + f"/data/run_1/temp_si-{si}.txt"
         magnetization = base_path + f"/data/run_1/magnetization_lb_sigma-{si}_L{L}.csv"
@@ -514,11 +503,9 @@ if __name__ == "__main__":
         temps = read_temperatures(temp)
         temps = temps[1:]
 
-        # for block_size in [64, 128, 256, 512, 1024, 2048, 4096]:
         block_size = 500
-        print(f"Block size: {block_size}")
         T_eval, obs, T_eval_err, obs_err = jackknife_multi_histogram(
-            calculate_dU, E, m, temps, L, num_bins=50, block_size=block_size, 
+            "suc", E, m, temps, L**2, num_bins=50, block_size=block_size, 
             n_eval=1000, i=1
         )
 
@@ -536,33 +523,38 @@ if __name__ == "__main__":
         print(f"Peak temperature: {peak_T:.8f} ± {T_err:.8f}")
         print(f"Peak value: {peak_value:.8f} ± {peak_err:.8f}")
  
-    x0, nu = guess_power_law(Ls, peak_Ts)
- 
-    m1 = peak_model(n_corr=1, x0=x0, nu=nu)
-    m3 = peak_model(n_corr=3, x0=x0, nu=nu)
- 
-    r1 = fit_scaling(Ls, peak_Ts, peak_T_errs, m1)
-    print(r1["params"], r1["red_chi2"])
-    r3 = fit_scaling(Ls, peak_Ts, peak_T_errs, m3)
-    print(r3["params"], r3["red_chi2"])
- 
-    r = fit_scaling(Ls, peak_Ts, peak_T_errs, m1, method="Nelder-Mead",
-                    options={"xatol": 1e-8, "fatol": 1e-10, "maxiter": 20000})
- 
-    custom = ScalingModel(
-        func=lambda L, p: p["x0"] * L ** (1 / p["nu"]) + p["c"],   # analytic background
-        params=[Param("x0", x0), Param("nu", nu, (1e-3, None)), Param("c", 0.0)],
-    )
-    print(fit_scaling(Ls, peak_Ts, peak_T_errs, custom)["params"])
+    x0, y = guess_power_law(Ls, peak_values)
 
-    import matplotlib.pyplot as plt
-    plt.errorbar(Ls, peak_Ts, peak_T_errs, fmt="o")
+    print(f"Guessed power law: x0={x0:.8f}, y={y:.8f}")
+
+    # m0 = peak_model(n_corr=0, x0=x0, y=y)
+    m1 = peak_model(n_corr=1, x0=x0, y=y)
+    # m3 = peak_model(n_corr=3, x0=x0, y=y)
+ 
+    # r0 = fit_scaling(Ls, peak_values, peak_value_errs, m0)
+    # print(f"0th order fit: y={r0["params"]["y"]:.8f} ± {r0["errors"]["y"]:.8f}, chi^2={r0["red_chi2"]:.8f}")
+
+    r1 = fit_scaling(Ls, peak_values, peak_value_errs, m1, fixed={"a1": 1.0, "w1": 0.46})
+    print(f"1st order fit: y={r1["params"]["y"]:.8f} ± {r1["errors"]["y"]:.8f}, chi^2={r1["red_chi2"]:.8f}")
+    print(f"Non-linear scaling exponents: a1 = {r1['params']['a1']:.8f}, w1 = {r1['params']['w1']:.8f}")
+
+    # r3 = fit_scaling(Ls, peak_values, peak_value_errs, m3)
+    # print(f"3rd order fit: y={r3["params"]["y"]:.8f} ± {r3["errors"]["y"]:.8f}, chi^2={r3["red_chi2"]:.8f}")
+
     L_fit = np.linspace(Ls.min(), Ls.max(), 100)
-    plt.plot(L_fit, m1.func(L_fit, r["params"]), label="fit")
+
+    plt.errorbar(Ls, peak_values, peak_value_errs, fmt="o")
+    # plt.plot(L_fit, m0.func(L_fit, r0["params"]), label="0th order")
+    plt.plot(L_fit, m1.func(L_fit, r1["params"]), label="1st order")
+    # plt.plot(L_fit, m3.func(L_fit, r3["params"]), label="3rd order")
     plt.xscale("log")
     plt.yscale("log")
+    plt.xlabel(r"$\ln L$")
+    plt.ylabel("Peak Value")
     plt.legend()
     plt.show()
+
+
 
 
 

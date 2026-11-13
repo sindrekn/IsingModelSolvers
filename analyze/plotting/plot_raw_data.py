@@ -349,6 +349,12 @@ if __name__ == "__main__":
 
             parameter, parameter_error, theta_i = block_jackknife_dlnm(
                 input_array, E, power=args.power, num_bins=args.bins)
+        elif args.metric == "dU":
+            E = pd.read_csv(args.energy_file[i], index_col=0).to_numpy()
+            E = E[:, 1:]  # Skip the first temp (equilibration)
+
+            parameter, parameter_error, theta_i = block_jackknife_dU(
+                input_array, E, power=args.power, num_bins=args.bins)
         else: 
             stat = get_metric(args.metric, args.N[i], temps)
             
