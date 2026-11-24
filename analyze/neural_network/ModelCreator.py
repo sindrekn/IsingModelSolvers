@@ -1,6 +1,6 @@
 import os
+import argparse
 import numpy as np
-import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from tensorflow import keras
 from tensorflow.keras import layers, callbacks
@@ -160,6 +160,7 @@ def block_jackknife(x, stat, n_blocks=20, return_replicates=False):
     return theta, err
 
 def plot_result(model, packed_by_temp, temps, N_NODES, T_c, bs=256):
+    import matplotlib.pyplot as plt
     preds = []
     for p in packed_by_temp:
         preds.append(np.concatenate([model.predict_on_batch(unpack_spins(p[j:j + bs], N_NODES))
@@ -181,24 +182,41 @@ def plot_result(model, packed_by_temp, temps, N_NODES, T_c, bs=256):
 
 # ---------- Main ----------
 
+def parse_args(): 
+    p = argparse.ArgumentParser(
+        description="Train a neural network to predict the phase of an Ising model."
+    )
+    p.add_argument("--model-path", help="Directory to save and load the trained model (keras file).")
+    p.add_argument("--data-path", help="Directory containing the training data (dat file).")
+    p.add_argument("--temp-path", help="Path to the temperature index file (txt file).")
+
+    p.add_argument("--train", action="store_true", help="Flag to indicate training mode.")
+    p.add_argument("--plot", action="store_true", help="Flag to indicate plotting mode.")
+
+    p.add_argument("-L", type=int, default=64, help="Lattice size.")
+
+    p.add_argument("--t-c", type=float, help="Critical temperature.")
+    args = p.parse_args()
+
+    # Check the data and temp path
+    if not os.path.exists(args.data_path):
+        raise FileNotFoundError("Data path does not exist.")
+    if not os.path.exists(args.temp_path):
+        raise FileNotFoundError("Temperature index path does not exist.")
+
+    return args
+
 if __name__ == "__main__":
-    MODEL_NUM, N_RUNS, TRAIN = 2, 1, True
+    args = parse_args()
+    n_nodes = args.L**2
+    temps, packed_by_temp = load_data(args.data_path, n_nodes, 1, args.temp_path)
 
-    for L in [64]:
-        N_NODES = L * L
-        BASE_DIR = '/home/sindrekampennesheim/Documents/PhD/IsingModel/NeuralNetwork/'
-        MODEL_DIR = os.path.join(BASE_DIR, 'Models')
-        TEMP_PATH = os.path.join(BASE_DIR, f'TraningData/square_nn_run{MODEL_NUM}/L_{L}/temp_index.txt')
-        DATA_PATH = os.path.join(BASE_DIR, f'TraningData/square_nn_run{MODEL_NUM}/L_{L}/')
-        T_c = 2 / np.log(1 + np.sqrt(2))
-        model_path = os.path.join(MODEL_DIR, f'test_Model{MODEL_NUM}_L{L}.keras')
+    if args.train:
+        model, _ = create_and_train_model(temps, packed_by_temp, n_nodes, args.t_c)
+        model.save(args.model_path)
+    else:
+        model = keras.models.load_model(args.model_path)
 
-        temps, packed_by_temp = load_data(DATA_PATH, N_NODES, N_RUNS, TEMP_PATH)
-
-        if TRAIN:
-            model, _ = create_and_train_model(temps, packed_by_temp, N_NODES, T_c)
-            model.save(model_path)
-        else:
-            model = keras.models.load_model(model_path)
-
-        plot_result(model, packed_by_temp, temps, N_NODES, T_c)
+    if args.plot:
+        
+        plot_result(model, packed_by_temp, temps, n_nodes, args.t_c)
