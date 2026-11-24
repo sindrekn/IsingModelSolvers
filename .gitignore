@@ -3,6 +3,7 @@ build/
 temp/
 benchmarks_v1/
 analyze/plotting/__pycache__/
+analyze/__pycache__/
 build-asan/
 
 # Ignore compiled files
@@ -13,5 +14,6 @@ backend/runnerv2.hpp
 analyze/file_reader.cpp
 analyze/lattize_analytics.py
 analyze/analyze
+analyze/plotting/FSS.py
 TestSweepSpeed.cpp
 benchmark_results.txt

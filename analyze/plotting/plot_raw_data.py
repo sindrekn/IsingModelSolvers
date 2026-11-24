@@ -5,7 +5,7 @@ import matplotlib.cm as cm
 import numpy as np
 import pandas as pd
 
-def block_jackknife(x, stat, num_bins=20, return_replicates=False):
+def block_jackknife(x, stat, n_blocks=20, return_replicates=False):
     """
     Returns the jackknife estimate of the statistic and its error.
 
@@ -20,19 +20,19 @@ def block_jackknife(x, stat, num_bins=20, return_replicates=False):
     Role: Generated the block jackknife function 
     for computing statistics and errors from data.
     """
-    n = (x.shape[0] // num_bins) * num_bins
-    b = n // num_bins
+    n = (x.shape[0] // n_blocks) * n_blocks
+    b = n // n_blocks
     x = x[:n]
-    S = {k: (x**k).reshape(num_bins, b, -1).sum(axis=1) for k in (1, 2, 4)}
+    S = {k: (x**k).reshape(n_blocks, b, -1).sum(axis=1) for k in (1, 2, 4)}
     full = {k: S[k].sum(axis=0) / n for k in S}
     loo  = {k: (S[k].sum(axis=0) - S[k]) / (n - b) for k in S}
     theta, theta_i = stat(full), stat(loo)
-    err = np.sqrt((num_bins - 1) * np.var(theta_i, axis=0, ddof=0))
+    err = np.sqrt((n_blocks - 1) * np.var(theta_i, axis=0, ddof=0))
     if return_replicates:
         return theta, err, theta_i
     return theta, err
 
-def block_jackknife_dlnm(m, E, power=1, num_bins=20, sign=-1):
+def block_jackknife_dlnm(m, E, power=1, n_blocks=20, sign=-1):
     """
     d ln<|m|^i>/dbeta = sign * ( <|m|^i E>/<|m|^i> - <E> )
 
@@ -47,13 +47,13 @@ def block_jackknife_dlnm(m, E, power=1, num_bins=20, sign=-1):
     Role: Generated the block_jackknife_dlnm function for computing
     the derivative of the logarithm of the magnetization with respect to beta.
     """
-    n = (m.shape[0] // num_bins) * num_bins
-    b = n // num_bins
+    n = (m.shape[0] // n_blocks) * n_blocks
+    b = n // n_blocks
     mi = np.abs(m[:n]) ** power
     E = E[:n]
 
     def binsum(a):
-        return a.reshape(num_bins, b, -1).sum(axis=1)
+        return a.reshape(n_blocks, b, -1).sum(axis=1)
 
     S = {"m": binsum(mi), "mE": binsum(mi * E), "E": binsum(E)}
     full = {k: v.sum(axis=0) / n for k, v in S.items()}
@@ -61,10 +61,10 @@ def block_jackknife_dlnm(m, E, power=1, num_bins=20, sign=-1):
 
     stat = lambda M: sign * (M["mE"] / M["m"] - M["E"])
     theta, theta_i = stat(full), stat(loo)
-    err = np.sqrt((num_bins - 1) * np.var(theta_i, axis=0, ddof=0))
+    err = np.sqrt((n_blocks - 1) * np.var(theta_i, axis=0, ddof=0))
     return theta, err, theta_i
 
-def block_jackknife_dU(m, E, power=1, num_bins=20):
+def block_jackknife_dU(m, E, power=1, n_blocks=20):
     """
     d U_i/dbeta = 2 <|m|^i> <|m|^i E> / (3 <|m|^i>^3) - (<|m|^{2i} E> - <|m|^{2i}> <E>) / (3 <|m|^i>^2)
 
@@ -79,13 +79,13 @@ def block_jackknife_dU(m, E, power=1, num_bins=20):
     Role: Generated the block_jackknife_dlnm function for computing
     the derivative of the logarithm of the magnetization with respect to beta.
     """
-    n = (m.shape[0] // num_bins) * num_bins
-    b = n // num_bins
+    n = (m.shape[0] // n_blocks) * n_blocks
+    b = n // n_blocks
     mi = np.abs(m[:n]) ** power
     E = E[:n]
 
     def binsum(a):
-        return a.reshape(num_bins, b, -1).sum(axis=1)
+        return a.reshape(n_blocks, b, -1).sum(axis=1)
 
     S = {"m": binsum(mi), "mE": binsum(mi * E), "E": binsum(E), "m2": binsum(mi**2), "m2E": binsum(mi**2 * E)}
     full = {k: v.sum(axis=0) / n for k, v in S.items()}
@@ -93,7 +93,7 @@ def block_jackknife_dU(m, E, power=1, num_bins=20):
 
     stat = lambda M: 2 * M["m2"] * (M["m"]*M["E"] - M["mE"]) / (3*M["m"]**3) + (M["m2E"] - M["m2"]*M["E"]) / (3*M["m"]**2)
     theta, theta_i = stat(full), stat(loo)
-    err = np.sqrt((num_bins - 1) * np.var(theta_i, axis=0, ddof=0))
+    err = np.sqrt((n_blocks - 1) * np.var(theta_i, axis=0, ddof=0))
     return theta, err, theta_i
 
 def crossing_point(T, U1, U2, window, deg=3):
@@ -348,18 +348,18 @@ if __name__ == "__main__":
             E = E[:, 1:]  # Skip the first temp (equilibration)
 
             parameter, parameter_error, theta_i = block_jackknife_dlnm(
-                input_array, E, power=args.power, num_bins=args.bins)
+                input_array, E, power=args.power, n_blocks=args.bins)
         elif args.metric == "dU":
             E = pd.read_csv(args.energy_file[i], index_col=0).to_numpy()
             E = E[:, 1:]  # Skip the first temp (equilibration)
 
             parameter, parameter_error, theta_i = block_jackknife_dU(
-                input_array, E, power=args.power, num_bins=args.bins)
+                input_array, E, power=args.power, n_blocks=args.bins)
         else: 
             stat = get_metric(args.metric, args.N[i], temps)
             
             parameter, parameter_error, theta_i = block_jackknife(
-                input_array, stat, num_bins=args.bins, return_replicates=True)
+                input_array, stat, n_blocks=args.bins, return_replicates=True)
 
         parameter_data.append(parameter)
         parameter_errors.append(parameter_error)
