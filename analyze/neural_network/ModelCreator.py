@@ -1,6 +1,7 @@
 import os
 import argparse
 import numpy as np
+import pandas as pd
 from sklearn.model_selection import train_test_split
 from tensorflow import keras
 from tensorflow.keras import layers, callbacks
@@ -159,14 +160,15 @@ def block_jackknife(x, stat, n_blocks=20, return_replicates=False):
         return theta, err, theta_i
     return theta, err
 
-def plot_result(model, packed_by_temp, temps, N_NODES, T_c, bs=256):
+def plot_result(temps, N_NODES, T_c, bs=256, model=None, packed_by_temp=None, preds=None):
     import matplotlib.pyplot as plt
-    preds = []
-    for p in packed_by_temp:
-        preds.append(np.concatenate([model.predict_on_batch(unpack_spins(p[j:j + bs], N_NODES))
-                                for j in range(0, len(p), bs)]).squeeze(-1))
-    preds = np.array(preds).T
-    print(preds.shape)
+    if preds is None:
+        preds = []
+        for p in packed_by_temp:
+            preds.append(np.concatenate([model.predict_on_batch(unpack_spins(p[j:j + bs], N_NODES))
+                                    for j in range(0, len(p), bs)]).squeeze(-1))
+        preds = np.array(preds).T
+        print(preds.shape)
 
     mean, err = block_jackknife(preds, get_metric("direct", N_NODES, temps))
     print(len(mean))
@@ -180,43 +182,71 @@ def plot_result(model, packed_by_temp, temps, N_NODES, T_c, bs=256):
     plt.legend()
     plt.show()
 
-# ---------- Main ----------
+def model_pred(model, packed_by_temp, n_nodes, bs=256):
+    preds = []
+    for p in packed_by_temp:
+        preds.append(np.concatenate([model.predict_on_batch(unpack_spins(p[j:j + bs], n_nodes))
+                                for j in range(0, len(p), bs)]).squeeze(-1))
+    return np.array(preds).T
 
+# ---------- Main ----------
 def parse_args(): 
     p = argparse.ArgumentParser(
         description="Train a neural network to predict the phase of an Ising model."
     )
     p.add_argument("--model-path", help="Directory to save and load the trained model (keras file).")
-    p.add_argument("--data-path", help="Directory containing the training data (dat file).")
-    p.add_argument("--temp-path", help="Path to the temperature index file (txt file).")
+    p.add_argument("--data-path", default=None, help="Directory containing the training data (dat file).")
+    p.add_argument("--temp-path", default=None, help="Path to the temperature index file (txt file).")
+    p.add_argument("--pred-path", default=None, help="Path to the prediction data file (csv file).")
 
     p.add_argument("--train", action="store_true", help="Flag to indicate training mode.")
     p.add_argument("--plot", action="store_true", help="Flag to indicate plotting mode.")
+    p.add_argument("--pred", action="store_true", help="Flag to indicate prediction mode.")
 
     p.add_argument("-L", type=int, default=64, help="Lattice size.")
 
     p.add_argument("--t-c", type=float, help="Critical temperature.")
     args = p.parse_args()
 
-    # Check the data and temp path
-    if not os.path.exists(args.data_path):
-        raise FileNotFoundError("Data path does not exist.")
-    if not os.path.exists(args.temp_path):
-        raise FileNotFoundError("Temperature index path does not exist.")
-
     return args
 
 if __name__ == "__main__":
     args = parse_args()
     n_nodes = args.L**2
-    temps, packed_by_temp = load_data(args.data_path, n_nodes, 1, args.temp_path)
+
+    if args.data_path is not None:
+        if not os.path.exists(args.data_path):
+            raise FileNotFoundError("Data path does not exist.")
+        if not os.path.exists(args.temp_path):
+            raise FileNotFoundError("Temperature index path does not exist.")
+        temps, packed_by_temp = load_data(args.data_path, n_nodes, 1, args.temp_path)
 
     if args.train:
         model, _ = create_and_train_model(temps, packed_by_temp, n_nodes, args.t_c)
         model.save(args.model_path)
     else:
-        model = keras.models.load_model(args.model_path)
+        if args.model_path is not None:
+            if not os.path.exists(args.model_path):
+                raise FileNotFoundError("Model path does not exist.")
+            model = keras.models.load_model(args.model_path)
+
+    if args.pred: 
+        preds = model_pred(model, packed_by_temp, n_nodes, bs=256)
+        print(preds.shape)
+
+        df = pd.DataFrame(
+            np.vstack([temps, preds]),
+            index=["temp"] + [f"snapshot_{i}" for i in range(len(preds))],
+        )
+        df.to_csv(args.pred_path, index=True, header=False)
+        print("Predictions saved to: ", args.pred_path)
 
     if args.plot:
-        
-        plot_result(model, packed_by_temp, temps, n_nodes, args.t_c)
+        if args.pred_path is None: 
+            plot_result(temps, n_nodes, args.t_c, model=model, packed_by_temp=packed_by_temp)
+        else: 
+            df = pd.read_csv(args.pred_path, header=None, index_col=0)
+            temps = df.loc["temp"].to_numpy()
+            preds = df.drop(index="temp").to_numpy()
+
+            plot_result(temps, n_nodes, args.t_c, preds=preds)
