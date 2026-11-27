@@ -113,8 +113,8 @@ def create_and_train_model(temps, packed_by_temp, N_NODES, T_c):
                   loss='binary_crossentropy', metrics=['accuracy'])
 
     history = model.fit(
-        train_seq, validation_data=val_seq, epochs=2,
-        callbacks=[callbacks.EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True),
+        train_seq, validation_data=val_seq, epochs=100,
+        callbacks=[callbacks.EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True),
                    callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.2, patience=3)],
         verbose=1,
     )

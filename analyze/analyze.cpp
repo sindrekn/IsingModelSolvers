@@ -6,7 +6,6 @@
 #include <iomanip>
 #include <iostream>
 #include <limits>
-#include <numeric>
 #include <optional>
 #include <stdexcept>
 #include <string>

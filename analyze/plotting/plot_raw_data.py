@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 import numpy as np
 import pandas as pd
+from pathlib import Path
+from matplotlib.ticker import FormatStrFormatter
 
 def block_jackknife(x, stat, n_blocks=20, return_replicates=False):
     """
@@ -193,14 +195,16 @@ def plot_metric(args, parameter_data, parameter_error, temps, Tmean=None, Terr=N
     Role: Helped with the aesthetics of the plot.    
     """
     plt.style.use("seaborn-v0_8-whitegrid" if "seaborn-v0_8-whitegrid" in plt.style.available else "default")
-    fig, ax = plt.subplots(figsize=(7, 5), dpi=300)
+    fig, ax = plt.subplots(figsize=(4.2, 2.8), dpi=300)
+    ax.xaxis.set_major_formatter(FormatStrFormatter("%.2f"))
 
-    colors = cm.viridis(np.linspace(0, 0.9, len(args.L)))
+    colors = cm.viridis(np.linspace(0, 0.7, len(args.L)))
+    markers = ["o", "s", "^", "D", "v", "P", "X", "*"]
 
     for i, L in enumerate(args.L):
         ax.errorbar(
             temps, parameter_data[i], yerr=parameter_error[i],
-            linestyle="-", marker="o", markersize=3,
+            linestyle="-", marker=markers[i], markersize=3,
             markerfacecolor="white", markeredgecolor=colors[i], markeredgewidth=1.2,
             lw=1.4, color=colors[i], label=f"$L = {L}$",
             capsize=3, capthick=1.2, elinewidth=1.2, zorder=3,
@@ -236,7 +240,7 @@ def plot_metric(args, parameter_data, parameter_error, temps, Tmean=None, Terr=N
 
     ax.grid(True, linestyle=":", alpha=0.6)
     ax.tick_params(axis="both", which="major", labelsize=10)
-    ax.legend(frameon=False, fontsize=10)
+    # ax.legend(frameon=False, fontsize=10)
 
     if args.title is not None:
         ax.set_title(args.title, fontsize=14, pad=10)
@@ -246,7 +250,7 @@ def plot_metric(args, parameter_data, parameter_error, temps, Tmean=None, Terr=N
         ax.set_ylim(args.ylim)
 
     plt.tight_layout()
-    plt.savefig(args.save_path, bbox_inches="tight")
+    plt.savefig(args.save_path + ".pdf", bbox_inches="tight")
     if args.show:
         plt.show()
 
@@ -260,8 +264,6 @@ def parse_args():
     # Required inputs
     p.add_argument("-f", "--file-path", nargs="+", required=True,
                    help="CSV file(s) with data, one per lattice size")
-    p.add_argument("-t", "--temp-file", required=True,
-                   help="CSV file with temperature data")
     p.add_argument("-L", "--lattice-sizes", dest="L", type=int, nargs="+", required=True,
                    help="Lattice sizes (e.g. 8 16 32 48)")
     p.add_argument("-N", "--num-spins", dest="N", type=int, nargs="+", required=True,
@@ -326,14 +328,14 @@ if __name__ == "__main__":
     parameter_errors = []
     replicates = []
 
-    temps = read_temperatures(args.temp_file)
-    temps = temps[1:]  # Skip the first temp (equilibration)
-
     for i, L in enumerate(args.L):
 
         file_path = args.file_path[i]
 
-        df = pd.read_csv(file_path, index_col=0)
+        df = pd.read_csv(file_path, index_col=0, header=None)
+        temps = df.loc["temp"].values
+        df = df.drop(index="temp")
+
         if args.op == "simple_ann":
             input_array = simple_ann(args, df)
         elif args.op == "mag":
@@ -342,6 +344,7 @@ if __name__ == "__main__":
             input_array = df.to_numpy()
 
         input_array = input_array[:, 1:]  # Skip the first temp (equilibration)
+        temps = temps[1:]
 
         if args.metric == "dlnm":
             E = pd.read_csv(args.energy_file[i], index_col=0).to_numpy()
@@ -367,6 +370,7 @@ if __name__ == "__main__":
 
     if args.metric == "binder" and args.cw is not None:
         Ts, dTs, Lpairs = [], [], []
+        lines = []
         for i, j in itertools.combinations(range(len(args.L)), 2):
             Tx, dTx = jackknife_crossing(
                 temps, parameter_data[i], replicates[i],
@@ -375,7 +379,9 @@ if __name__ == "__main__":
             )
             Ts.append(Tx); dTs.append(dTx)
             Lpairs.append((args.L[i], args.L[j]))
-            print(f"L=({args.L[i]}, {args.L[j]}):  T* = {Tx:.5f} +- {dTx:.5f}")
+            text = f"L=({args.L[i]}, {args.L[j]}):  T* = {Tx:.5f} +- {dTx:.5f}"
+            print(text)
+            lines.append(text)
 
         Ts, dTs = np.array(Ts), np.array(dTs)
         Lmin_pair = np.array([min(p) for p in Lpairs])
@@ -389,12 +395,18 @@ if __name__ == "__main__":
                 w = 1 / dTs[sel]**2
                 Tmean = np.sum(w * Ts[sel]) / w.sum()
                 Terr = 1 / np.sqrt(w.sum())
-                print(f"Lmin={Lmin}: n_pairs={sel.sum()}  T* = {Tmean:.5f} +- {Terr:.5f}")
+                text = f"Lmin={Lmin}: n_pairs={sel.sum()}  T* = {Tmean:.5f} +- {Terr:.5f}"
+                print(text)
+                lines.append(text)
 
             w = 1 / dTs[ok]**2
             Tmean = np.sum(w * Ts[ok]) / w.sum()
             Terr = 1 / np.sqrt(w.sum())
-            print(f"Weighted mean T* = {Tmean:.5f} +- {Terr:.5f}")
+            text = f"Weighted mean T* = {Tmean:.5f} +- {Terr:.5f}" 
+            print(text)
+            lines.append(text)
+            # Save text_string as a txt file
+            Path(args.save_path + ".txt").write_text("\n".join(lines) + "\n")
 
         plot_metric(args, parameter_data, parameter_errors, temps, Tmean, Terr)
     else: 
